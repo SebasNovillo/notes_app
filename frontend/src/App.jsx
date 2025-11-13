@@ -24,3 +24,16 @@ const App = () => {
 }
 
 export default App
+
+
+// import React from 'react';
+
+// const App = () => {
+//   return (
+//     <h1 style={{ color: 'black', marginTop: '40px', textAlign: 'center' }}>
+//       Hello from App
+//     </h1>
+//   );
+// };
+
+// export default App;
