@@ -35,9 +35,11 @@ const LogIn = () => {
                     <form onSubmit={handleLogin}>
                         <h4 className='text-2xl mb-7'>LogIn</h4>
 
-                        <input type='text' placeholder='Email' className='input-box' 
-                        
-                        value={email}
+                        <input
+                            type='text'
+                            placeholder='Email'
+                            className='input-box' 
+                            value={email}
                             onChange={(e) => setEmail(e.target.value)}
                         />
 
@@ -55,8 +57,6 @@ const LogIn = () => {
                             <Link to="/signup" className='front-medium text-primary underline'>
                                 Create an Account
                             </Link>
-
-                            
                         </p>
                     </form>
                 </div>
