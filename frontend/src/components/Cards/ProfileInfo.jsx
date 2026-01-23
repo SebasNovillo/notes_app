@@ -2,7 +2,11 @@ import React from 'react'
 
 function ProfileInfo() {
   return (
-    <div>ProfileInfo</div>
+    <div className=''>
+        <div className=''>
+
+        </div>
+    </div>
   )
 }
 
