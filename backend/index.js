@@ -96,6 +96,7 @@ app.post("/create-account", async (req, res) => {
   }
 });
 
+
 // Protected route to test JWT quickly
 app.get("/get-user", authenticateToken, async (req, res) => {
   try {
@@ -108,6 +109,57 @@ app.get("/get-user", authenticateToken, async (req, res) => {
     return res.status(500).json({ error: true, message: err.message });
   }
 });
+
+// Login Account
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: true, message: "Email is required" });
+    }
+
+    if (!password) {
+      return res.status(400).json({ error: true, message: "Password is required" });
+    }
+
+    const userInfo = await User.findOne({ email });
+    if (!userInfo) {
+      return res.status(400).json({ error: true, message: "User not found" });
+    }
+
+    // Compare hashed password
+    const isPasswordValid = await bcrypt.compare(password, userInfo.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({
+        error: true,
+        message: "Invalid credentials",
+      });
+    }
+
+    // Token with userId only
+    const accessToken = jwt.sign(
+      { userId: userInfo._id },
+      process.env.ACCESS_TOKEN_SECRET,
+      { expiresIn: "3600m" }
+    );
+
+    return res.json({
+      error: false,
+      message: "Login Successful",
+      email: userInfo.email,
+      accessToken,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: true, message: err.message });
+  }
+});
+
+
+
+
+
+
 
 app.listen(8000, () => console.log("✅ Server running on port 8000"));
 
