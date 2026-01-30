@@ -28,86 +28,96 @@ mongoose
   });
 
 app.get("/", (req, res) => {
-  res.json({ data: "hello" });
+    res.json({ data: "hello" });
 });
+
+function toSafeUser(user) {
+    return {
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        createdOn: user.createdOn,
+    };
+}
 
 // Create Account
 app.post("/create-account", async (req, res) => {
-  try {
-    const { fullName, email, password, confirmPassword } = req.body;
+    try {
+        const { fullName, email, password, confirmPassword } = req.body;
 
-    if (!fullName) {
-      return res.status(400).json({ error: true, message: "Full Name is required" });
+        if (!fullName) {
+            return res.status(400).json({ error: true, message: "Full Name is required" });
+        }
+        if (!email) {
+            return res.status(400).json({ error: true, message: "Email is required" });
+        }
+        if (!password) {
+            return res.status(400).json({ error: true, message: "Password is required" });
+        }
+
+        // NEW: confirm password checks
+        if (!confirmPassword) {
+            return res.status(400).json({ error: true, message: "Confirm Password is required" });
+        }
+        if (password !== confirmPassword) {
+            return res.status(400).json({ error: true, message: "Passwords do not match" });
+        }
+
+        const isUser = await User.findOne({ email });
+        if (isUser) {
+            return res.status(409).json({ error: true, message: "User already exists" });
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const user = new User({
+            fullName,
+            email,
+            password: hashedPassword,
+        });
+
+        await user.save();
+
+        // Token with userId only
+        const accessToken = jwt.sign(
+            { userId: user._id },
+            process.env.ACCESS_TOKEN_SECRET,
+            { expiresIn: "3600m" }
+        );
+
+        return res.status(201).json({
+            error: false,
+            user: toSafeUser(user),
+            accessToken,
+            message: "Registration Successful",
+        });
+    } catch (err) {
+        return res.status(500).json({ error: true, message: err.message });
     }
-    if (!email) {
-      return res.status(400).json({ error: true, message: "Email is required" });
-    }
-    if (!password) {
-      return res.status(400).json({ error: true, message: "Password is required" });
-    }
-
-    // NEW: confirm password checks
-    if (!confirmPassword) {
-      return res.status(400).json({ error: true, message: "Confirm Password is required" });
-    }
-    if (password !== confirmPassword) {
-      return res.status(400).json({ error: true, message: "Passwords do not match" });
-    }
-
-    const isUser = await User.findOne({ email });
-    if (isUser) {
-      return res.status(409).json({ error: true, message: "User already exists" });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = new User({
-      fullName,
-      email,
-      password: hashedPassword,
-    });
-
-    await user.save();
-
-    // Token with userId only
-    const accessToken = jwt.sign(
-      { userId: user._id },
-      process.env.ACCESS_TOKEN_SECRET,
-      { expiresIn: "3600m" }
-    );
-
-    // Safe user response (no password)
-    const safeUser = {
-      _id: user._id,
-      fullName: user.fullName,
-      email: user.email,
-      createdOn: user.createdOn,
-    };
-
-    return res.status(201).json({
-      error: false,
-      user: safeUser,
-      accessToken,
-      message: "Registration Successful",
-    });
-  } catch (err) {
-    return res.status(500).json({ error: true, message: err.message });
-  }
 });
-
 
 // Protected route to test JWT quickly
 app.get("/get-user", authenticateToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.userId).select("-password");
-    if (!user) {
-      return res.status(404).json({ error: true, message: "User not found" });
+    try {
+        const user = await User.findById(req.user.userId).select("-password");
+        if (!user) {
+            return res.status(404).json({ error: true, message: "User not found" });
+        }
+
+        return res.json({ error: false, user: toSafeUser(user) });
+
+    } catch (err) {
+        return res.status(500).json({ error: true, message: err.message });
     }
-    return res.json({ error: false, user });
-  } catch (err) {
-    return res.status(500).json({ error: true, message: err.message });
-  }
+});
+
+app.get("/protected", authenticateToken, (req, res) => {
+    return res.json({
+        error: false,
+        message: "You have access ✅",
+        user: req.user, // { userId: "..." }
+    });
 });
 
 // Login Account
@@ -124,8 +134,9 @@ app.post("/login", async (req, res) => {
     }
 
     const userInfo = await User.findOne({ email });
+
     if (!userInfo) {
-      return res.status(400).json({ error: true, message: "User not found" });
+        return res.status(404).json({ error: true, message: "User not found" });
     }
 
     // Compare hashed password
@@ -145,21 +156,16 @@ app.post("/login", async (req, res) => {
     );
 
     return res.json({
-      error: false,
-      message: "Login Successful",
-      email: userInfo.email,
-      accessToken,
+        error: false,
+        message: "Login Successful",
+        user: toSafeUser(userInfo),
+        accessToken,
     });
+
   } catch (err) {
     return res.status(500).json({ error: true, message: err.message });
   }
 });
-
-
-
-
-
-
 
 app.listen(8000, () => console.log("✅ Server running on port 8000"));
 
