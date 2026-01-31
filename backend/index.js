@@ -8,6 +8,7 @@ const bcrypt = require("bcrypt");
 
 const { authenticateToken } = require("./utilities");
 const User = require("./models/user.model");
+const Note = require("./models/note.model");
 
 const app = express();
 
@@ -166,6 +167,47 @@ app.post("/login", async (req, res) => {
     return res.status(500).json({ error: true, message: err.message });
   }
 });
+
+// Add Note
+app.post("/add-note", authenticateToken, async (req,res) => {
+    const { title, content, tags } = req.body;
+    const { userId } = req.user;
+
+
+    if (!title) {
+        return res.status(400).json({ error: true, message: "Title is required" });
+    }
+
+    if (!content) {
+        return res
+            .status(400)
+            .json({ error: true, message: "Content is required" });
+    }
+
+    try {
+        const note = new Note({
+            title,
+            content,
+            tags: tags || [],
+            userId: user._id,
+        });
+
+        await note.save();
+
+        return res.json({
+            error: false,
+            note,
+            message: "Note added succesfully",
+        });
+    } catch (error) {
+        return res.status(500).json({
+            error: true,
+            message: "Internal Server Error",
+        });
+    }
+});
+
+
 
 app.listen(8000, () => console.log("✅ Server running on port 8000"));
 
