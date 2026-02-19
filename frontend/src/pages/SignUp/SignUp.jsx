@@ -1,15 +1,20 @@
 import React, { useState } from 'react'
-import Navbar from '../../components/Navbar/Navbar';
+import Navbar from '../../components/Navbar/Navbar'
 import { Link } from 'react-router-dom'
-import PasswordInput from '../../components/Input/PasswordInput';
-import { validateEmail } from '../../utils/helper';
+import PasswordInput from '../../components/Input/PasswordInput'
+import { validateEmail } from '../../utils/helper'
+import axiosInstance from '../../utils/axiosInstance';
+import { useNavigate } from 'react-router-dom';
 
 const SignUp = () => {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState(null);
+
+  const navigate = useNavigate();
 
   const handleSignUp = async (e) => {
     e.preventDefault();
@@ -27,9 +32,47 @@ const SignUp = () => {
     if (!password) {
       setError("Please enter the password");
       return;
-    }    
+    }
+
+    if (!confirmPassword) {
+      setError("Please confirm your password");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
 
     setError('');
+
+    // SignUp API Call
+    try {
+      const response = await axiosInstance.post("/create-account", {
+        fullName: name,
+        email: email,
+        password: password,
+        confirmPassword: confirmPassword,
+      });
+
+      // Handle successful registration response
+      if (response.data && response.data.error) {
+        setError(response.data.message);
+        return;
+      }
+
+      if (response.data && response.data.accessToken) {
+        localStorage.setItem("token", response.data.accessToken);
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      // Handle signup error
+      if (error.response && error.response.data && error.response.data.message) {
+        setError(error.response.data.message);
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
+    }
   };
 
 
@@ -45,7 +88,7 @@ const SignUp = () => {
             <input
               type='text'
               placeholder='Name'
-              className='input-box' 
+              className='input-box'
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -53,14 +96,21 @@ const SignUp = () => {
             <input
               type='text'
               placeholder='Email'
-              className='input-box' 
+              className='input-box'
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
 
-            <PasswordInput 
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+            />
+
+            <PasswordInput
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm Password"
             />
 
             {error && <p className='text-red-500 text-xs pb-1'>{error}</p>}
