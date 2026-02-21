@@ -1,7 +1,8 @@
 import React from 'react';
 
 import { MdOutlinePushPin } from "react-icons/md";
-import { MdCreate, MdDelete } from "react-icons/md";
+import { MdCreate, MdDelete, MdDownload } from "react-icons/md";
+import { exportNoteToPDF } from "../../utils/exportUtils";
 
 const NoteCard = ({
     title,
@@ -44,6 +45,11 @@ const NoteCard = ({
                 </div>
 
                 <div className='flex items-center gap-2'>
+                    <MdDownload
+                        className="icon-btn hover:text-blue-600"
+                        title="Download PDF"
+                        onClick={() => exportNoteToPDF(title, content)}
+                    />
                     <MdCreate
                         className="icon-btn hover:text-green-600"
                         onClick={onEdit}

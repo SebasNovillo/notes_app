@@ -133,11 +133,20 @@ const Home = () => {
     }
   };
 
+  // Notes filtered only by search (but not yet by tags)
+  const searchFilteredNotes = allNotes; // If using local search, this would be different. But search is done via API and updates allNotes.
+
   const filteredNotes = selectedTags.length > 0
     ? allNotes.filter((note) =>
       selectedTags.every((tag) => note.tags.includes(tag))
     )
     : allNotes;
+
+  // We want pinned notes to stay visible even if they don't match the tag filter? 
+  // Most users expect Pinned to be 'Permanent' at the top.
+  // Let's make pinnedNotes only respect search, but not the sidebar tag filter.
+  const pinnedNotes = allNotes.filter(note => note.isPinned);
+  const otherNotes = filteredNotes.filter(note => !note.isPinned);
 
   useEffect(() => {
     getAllNotes();
@@ -165,22 +174,56 @@ const Home = () => {
         </div>
 
         <div className='flex-1'>
-          <div className='grid grid-cols-2 gap-4'>
-            {filteredNotes.map((item, index) => (
-              <NoteCard
-                key={item._id}
-                title={item.title}
-                date={item.createdAt}
-                content={item.content}
-                tags={item.tags}
-                isPinned={item.isPinned}
-                onEdit={() => handleEdit(item)}
-                onDelete={() => deleteNote(item)}
-                onPinNote={() => updateIsPinned(item)}
-                onTagClick={handleTagClick}
-              />
-            ))}
+          {pinnedNotes.length > 0 && (
+            <div className='mb-8'>
+              <h3 className='text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2'>
+                Pinned Notes
+                <div className='h-[1px] flex-1 bg-slate-100'></div>
+              </h3>
+              <div className='grid grid-cols-2 gap-4'>
+                {pinnedNotes.map((item) => (
+                  <NoteCard
+                    key={item._id}
+                    title={item.title}
+                    date={item.createdAt}
+                    content={item.content}
+                    tags={item.tags}
+                    isPinned={item.isPinned}
+                    onEdit={() => handleEdit(item)}
+                    onDelete={() => deleteNote(item)}
+                    onPinNote={() => updateIsPinned(item)}
+                    onTagClick={handleTagClick}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className='mb-8'>
+            {pinnedNotes.length > 0 && (
+              <h3 className='text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2'>
+                Recent Notes
+                <div className='h-[1px] flex-1 bg-slate-100'></div>
+              </h3>
+            )}
+            <div className='grid grid-cols-2 gap-4'>
+              {otherNotes.map((item) => (
+                <NoteCard
+                  key={item._id}
+                  title={item.title}
+                  date={item.createdAt}
+                  content={item.content}
+                  tags={item.tags}
+                  isPinned={item.isPinned}
+                  onEdit={() => handleEdit(item)}
+                  onDelete={() => deleteNote(item)}
+                  onPinNote={() => updateIsPinned(item)}
+                  onTagClick={handleTagClick}
+                />
+              ))}
+            </div>
           </div>
+
           {filteredNotes.length === 0 && (
             <div className='flex flex-col items-center justify-center mt-20'>
               <p className='text-slate-600 text-lg font-medium'>No notes found matching your criteria</p>
