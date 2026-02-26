@@ -6,7 +6,6 @@ import AddEditNotes from './AddEditNotes'
 import Modal from "react-modal"
 import axiosInstance from '../../utils/axiosInstance';
 import { useNavigate } from 'react-router-dom';
-import TagFilter from '../../components/TagFilter/TagFilter';
 
 const Home = () => {
 
@@ -21,6 +20,7 @@ const Home = () => {
   const [isSearch, setIsSearch] = useState(false);
   const [allTags, setAllTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const navigate = useNavigate();
 
@@ -122,6 +122,7 @@ const Home = () => {
 
   const handleClearSearch = () => {
     setIsSearch(false);
+    setSearchQuery("");
     getAllNotes();
   };
 
@@ -162,25 +163,23 @@ const Home = () => {
         userInfo={userInfo}
         onSearchNote={onSearchNote}
         handleClearSearch={handleClearSearch}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        allTags={allTags}
+        selectedTags={selectedTags}
+        handleTagClick={handleTagClick}
       />
 
-      <div className='container mx-auto flex gap-8 mt-8'>
-        <div className='w-1/4'>
-          <TagFilter
-            allTags={allTags}
-            selectedTags={selectedTags}
-            onTagClick={handleTagClick}
-          />
-        </div>
+      <div className='container mx-auto px-8 mt-8 mb-24'>
+        <div className='w-full'>
 
-        <div className='flex-1'>
           {pinnedNotes.length > 0 && (
-            <div className='mb-8'>
-              <h3 className='text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2'>
+            <div className='mb-10'>
+              <h3 className='text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2'>
                 Pinned Notes
                 <div className='h-[1px] flex-1 bg-slate-100'></div>
               </h3>
-              <div className='grid grid-cols-2 gap-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
                 {pinnedNotes.map((item) => (
                   <NoteCard
                     key={item._id}
@@ -193,20 +192,21 @@ const Home = () => {
                     onDelete={() => deleteNote(item)}
                     onPinNote={() => updateIsPinned(item)}
                     onTagClick={handleTagClick}
+                    searchQuery={searchQuery}
                   />
                 ))}
               </div>
             </div>
           )}
 
-          <div className='mb-8'>
+          <div className='mb-10'>
             {pinnedNotes.length > 0 && (
-              <h3 className='text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2'>
+              <h3 className='text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2'>
                 Recent Notes
                 <div className='h-[1px] flex-1 bg-slate-100'></div>
               </h3>
             )}
-            <div className='grid grid-cols-2 gap-4'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
               {otherNotes.map((item) => (
                 <NoteCard
                   key={item._id}
@@ -219,6 +219,7 @@ const Home = () => {
                   onDelete={() => deleteNote(item)}
                   onPinNote={() => updateIsPinned(item)}
                   onTagClick={handleTagClick}
+                  searchQuery={searchQuery}
                 />
               ))}
             </div>

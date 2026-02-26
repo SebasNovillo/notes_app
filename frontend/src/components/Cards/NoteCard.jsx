@@ -4,6 +4,26 @@ import { MdOutlinePushPin } from "react-icons/md";
 import { MdCreate, MdDelete, MdDownload } from "react-icons/md";
 import { exportNoteToPDF } from "../../utils/exportUtils";
 
+/**
+ * Wraps occurrences of `query` in `text` with a <mark> tag.
+ * Returns a string of HTML safe to set via dangerouslySetInnerHTML.
+ */
+const highlight = (text, query) => {
+    if (!query || !text) return text;
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
+};
+
+/**
+ * Strips HTML tags from a string, returning plain text.
+ */
+const stripHtml = (html) => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+};
+
 const NoteCard = ({
     title,
     date,
@@ -13,49 +33,64 @@ const NoteCard = ({
     onEdit,
     onDelete,
     onPinNote,
-    onTagClick
+    onTagClick,
+    searchQuery = '',
 }) => {
+    const highlightedTitle = highlight(title, searchQuery);
+    const plainContent = stripHtml(content);
+    const highlightedContent = highlight(plainContent, searchQuery);
+
     return (
-        <div className='border rounded p-4 bg-white hover:shadow-xl transition-all ease-in-out'>
-            <div className='flex items-center justify-between'>
-                <div>
-                    <h6 className='text-sm font-medium'>{title}</h6>
-                    <span className='text-xs text-slate-500'>{date}</span>
+        <div className='group border-none shadow-sm rounded-xl p-5 bg-white hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] relative flex flex-col h-full'>
+            <div className='flex items-start justify-between'>
+                <div className='flex flex-col gap-1 pr-6'>
+                    <h6
+                        className='text-base font-semibold text-slate-800 leading-snug'
+                        dangerouslySetInnerHTML={{ __html: highlightedTitle }}
+                    />
+                    <span className='text-[11px] font-medium text-slate-400'>{date}</span>
                 </div>
 
-                <MdOutlinePushPin className={`icon-btn ${isPinned ? 'text-primary' : 'text-slate-300'}`} onClick={onPinNote} />
+                <MdOutlinePushPin className={`icon-btn absolute right-5 top-5 ${isPinned ? 'text-primary' : 'text-slate-300 hover:text-primary'}`} onClick={onPinNote} />
             </div>
 
             <div
-                className='text-xs text-slate-600 mt-2 line-clamp-3'
-                dangerouslySetInnerHTML={{ __html: content }}
+                className='text-[13px] text-slate-600 mt-4 leading-relaxed line-clamp-4 flex-1'
+                dangerouslySetInnerHTML={{ __html: highlightedContent }}
             />
 
-            <div className='flex items-center justify-between mt-2'>
-                <div className='text-xs text-slate-500'>
-                    {tags.map((item) => (
-                        <span
-                            key={item}
-                            className='bg-slate-100 px-2 py-1 rounded text-primary mr-1 capitalize cursor-pointer hover:bg-slate-200 transition-all'
-                            onClick={() => onTagClick(item)}
-                        >
-                            #{item}
-                        </span>
-                    ))}
+            <div className='flex items-end justify-between mt-6'>
+                <div className='flex flex-wrap gap-2 text-xs'>
+                    {tags.map((item) => {
+                        const isTagMatched = searchQuery && item.toLowerCase().includes(searchQuery.toLowerCase());
+
+                        return (
+                            <span
+                                key={item}
+                                className={`px-2.5 py-1 rounded-md font-medium capitalize cursor-pointer transition-colors ${isTagMatched
+                                        ? 'bg-yellow-200 text-yellow-800 hover:bg-yellow-300'
+                                        : 'bg-primary/5 text-primary hover:bg-primary/10'
+                                    }`}
+                                onClick={() => onTagClick(item)}
+                            >
+                                #{item}
+                            </span>
+                        );
+                    })}
                 </div>
 
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white/80 backdrop-blur pl-2 rounded-l-full'>
                     <MdDownload
-                        className="icon-btn hover:text-blue-600"
+                        className="text-[18px] text-slate-400 cursor-pointer hover:text-primary transition-colors"
                         title="Download PDF"
                         onClick={() => exportNoteToPDF(title, content)}
                     />
                     <MdCreate
-                        className="icon-btn hover:text-green-600"
+                        className="text-[18px] text-slate-400 cursor-pointer hover:text-green-500 transition-colors"
                         onClick={onEdit}
                     />
                     <MdDelete
-                        className="icon-btn hover:text-red-500"
+                        className="text-[18px] text-slate-400 cursor-pointer hover:text-red-500 transition-colors"
                         onClick={onDelete}
                     />
                 </div>

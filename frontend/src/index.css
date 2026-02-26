@@ -13,10 +13,12 @@
   }
 
   body {
-    background-color: #fdfeff;
+    background-color: #f8fafc;
+    /* slate-50 */
     overflow-x: hidden;
   }
 }
+
 
 @layer components {
   .input-box {
@@ -118,5 +120,13 @@
     padding: 60px 72px;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 4px 24px 0 rgba(0, 0, 0, 0.06);
     border-radius: 4px;
+  }
+
+  /* Search highlight */
+  mark {
+    background-color: #fef08a;
+    color: inherit;
+    border-radius: 2px;
+    padding: 0 2px;
   }
 }
