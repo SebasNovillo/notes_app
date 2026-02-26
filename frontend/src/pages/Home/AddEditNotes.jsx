@@ -1,13 +1,18 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import TagInput from '../../components/Input/TagInput'
-import { MdClose, MdFormatBold, MdFormatItalic, MdFormatListBulleted, MdFormatListNumbered, MdCode, MdFormatQuote, MdFunctions } from 'react-icons/md';
+import { MdClose, MdFormatBold, MdFormatItalic, MdFormatListBulleted, MdFormatListNumbered, MdCode, MdFormatQuote } from 'react-icons/md';
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import { TextStyle, FontSize } from '@tiptap/extension-text-style'
 
 import axiosInstance from '../../utils/axiosInstance';
 
+const FONT_SIZES = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px', '36px', '48px'];
+
 const Toolbar = ({ editor }) => {
     if (!editor) return null;
+
+    const currentFontSize = editor.getAttributes('textStyle').fontSize || '16px';
 
     return (
         <div className="tiptap-toolbar">
@@ -25,19 +30,41 @@ const Toolbar = ({ editor }) => {
             >
                 <MdFormatItalic size={20} />
             </button>
+
+            {/* Font Size Selector */}
+            <select
+                value={currentFontSize}
+                onChange={(e) => {
+                    if (e.target.value === 'default') {
+                        editor.chain().focus().unsetFontSize().run();
+                    } else {
+                        editor.chain().focus().setFontSize(e.target.value).run();
+                    }
+                }}
+                className="toolbar-select"
+                title="Font Size"
+            >
+                <option value="default">Size</option>
+                {FONT_SIZES.map(size => (
+                    <option key={size} value={size}>{size.replace('px', '')}</option>
+                ))}
+            </select>
+
+            <div className="toolbar-divider" />
+
             <button
                 onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
                 className={`toolbar-btn ${editor.isActive('heading', { level: 1 }) ? 'is-active' : ''}`}
                 title="H1"
             >
-                <span className="font-bold">H1</span>
+                <span className="font-bold text-sm">H1</span>
             </button>
             <button
                 onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
                 className={`toolbar-btn ${editor.isActive('heading', { level: 2 }) ? 'is-active' : ''}`}
                 title="H2"
             >
-                <span className="font-bold">H2</span>
+                <span className="font-bold text-sm">H2</span>
             </button>
             <button
                 onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -78,11 +105,8 @@ const AddEditNotes = ({ noteData, type, getAllNotes, onClose }) => {
     const [error, setError] = useState(null);
 
     const editor = useEditor({
-        extensions: [StarterKit],
+        extensions: [StarterKit, TextStyle, FontSize],
         content: noteData?.content || "",
-        onUpdate: ({ editor }) => {
-            // No need to manually set content state every keystroke if we grab it on save
-        }
     });
 
     // Add Note
@@ -151,30 +175,34 @@ const AddEditNotes = ({ noteData, type, getAllNotes, onClose }) => {
     return (
         <div className='relative'>
 
-            <button className='w-10 h-10 rounded-full flex items-center justify-center absolute -top-3 -right-3 hover:bg-slate-50' onClick={onClose}
-            >
+            <button className='w-10 h-10 rounded-full flex items-center justify-center absolute -top-3 -right-3 hover:bg-slate-50' onClick={onClose}>
                 <MdClose className='text-xl text-slate-400' />
             </button>
 
-            <div className='flex flex-col gap-2'>
+            {/* Title */}
+            <div className='flex flex-col gap-2 mb-4'>
                 <label className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>TITLE</label>
                 <input
                     type='text'
-                    className='text-4xl font-semibold text-slate-950 outline-none border-b border-white hover:border-slate-100 focus:border-slate-200 transition-all pb-2 mb-4 placeholder:text-slate-200'
+                    className='text-4xl font-semibold text-slate-950 outline-none border-b border-white hover:border-slate-100 focus:border-slate-200 transition-all pb-2 placeholder:text-slate-200'
                     placeholder='Untitled Note'
                     value={title}
                     onChange={({ target }) => setTitle(target.value)}
                 />
             </div>
 
+            {/* Editor with Document Page Layout */}
             <div className='flex flex-col gap-2 mt-4'>
                 <label className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>CONTENT</label>
-                <div className="border border-slate-50 rounded-lg p-2 min-h-[500px]">
+                <div className="document-host">
                     <Toolbar editor={editor} />
-                    <EditorContent editor={editor} className="tiptap-editor" />
+                    <div className="document-page">
+                        <EditorContent editor={editor} className="tiptap-editor" />
+                    </div>
                 </div>
             </div>
 
+            {/* Tags */}
             <div className='mt-8 pt-4 border-t border-slate-50'>
                 <label className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>TAGS</label>
                 <TagInput tags={tags} setTags={setTags} />
