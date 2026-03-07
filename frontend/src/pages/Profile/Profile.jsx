@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/Navbar/Navbar';
 import axiosInstance from '../../utils/axiosInstance';
 import { useNavigate } from 'react-router-dom';
+import { getInitials } from '../../utils/helper';
+import { MdOutlineArrowBack, MdPerson, MdLock, MdEmail } from 'react-icons/md';
 
 const Profile = () => {
+  const [userInfo, setUserInfo] = useState(null);
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -11,9 +14,25 @@ const Profile = () => {
   
   const navigate = useNavigate();
 
-  // We could fetch user info on mount, but for simplicity, we let user type new info
-  // Or we can just get user info from localStorage if stored, or fetch it.
-  
+  const getUserInfo = async () => {
+    try {
+      const response = await axiosInstance.get("/get-user");
+      if (response.data && response.data.user) {
+        setUserInfo(response.data.user);
+        setFullName(response.data.user.fullName);
+      }
+    } catch (error) {
+      if (error.response?.status === 401) {
+        localStorage.clear();
+        navigate("/login");
+      }
+    }
+  };
+
+  useEffect(() => {
+    getUserInfo();
+  }, []);
+
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setMessage("");
@@ -32,8 +51,11 @@ const Profile = () => {
 
       if (response.data && response.data.user) {
         setMessage("Profile updated successfully!");
-        setFullName("");
+        setUserInfo(response.data.user);
         setPassword("");
+        
+        // Clear message after 3 seconds
+        setTimeout(() => setMessage(''), 3000);
       }
     } catch (error) {
       if (error.response && error.response.data && error.response.data.message) {
@@ -45,48 +67,83 @@ const Profile = () => {
   };
 
   return (
-    <>
-      {/* We can pass null or empty props to Navbar if we just want the header without search */}
+    <div className="bg-slate-50 min-h-screen">
       <Navbar userInfo={null} onSearchNote={() => {}} handleClearSearch={() => {}} />
 
-      <div className='flex items-center justify-center mt-28'>
-        <div className='w-96 border rounded bg-white px-7 py-10 shadow-lg'>
-          <form onSubmit={handleUpdateProfile}>
-            <h4 className='text-2xl mb-7'>Update Profile</h4>
+      <div className='max-w-3xl mx-auto mt-12 px-6'>
+        
+        <button 
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center gap-2 text-slate-500 hover:text-primary mb-8 transition-colors font-medium"
+        >
+          <MdOutlineArrowBack size={20} />
+          Back to Dashboard
+        </button>
 
-            <input 
-              type="text" 
-              placeholder="New Full Name" 
-              className="input-box" 
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
+        <div className='bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden'>
+          
+          <div className='bg-primary/10 p-8 flex flex-col items-center justify-center border-b border-primary/20'>
+            <div className="w-24 h-24 flex items-center justify-center rounded-full text-primary font-bold text-3xl bg-primary/20 mb-4 shadow-inner">
+              {userInfo ? getInitials(userInfo.fullName) : ''}
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800">
+              {userInfo?.fullName || "Loading..."}
+            </h2>
+            <p className="text-slate-500 mt-1 flex items-center gap-2">
+              <MdEmail size={16} />
+              {userInfo?.email || "..."}
+            </p>
+          </div>
 
-            <input 
-              type="password" 
-              placeholder="New Password" 
-              className="input-box mt-4" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+          <form onSubmit={handleUpdateProfile} className="p-8">
+            <h3 className="text-lg font-semibold text-slate-700 mb-6">Account Settings</h3>
 
-            {error && <p className="text-red-500 text-xs pb-1 mt-2">{error}</p>}
-            {message && <p className="text-green-500 text-xs pb-1 mt-2">{message}</p>}
+            <div className="flex flex-col gap-6">
+              
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-2">
+                  <MdPerson size={16} />
+                  Display Name
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="Your Full Name" 
+                  className="input-box bg-slate-50 border-slate-200 focus:bg-white" 
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
 
-            <button type="submit" className="btn-primary mt-5">
-              Update
-            </button>
-            <button 
-              type="button" 
-              className="btn-primary mt-3 bg-slate-500 hover:bg-slate-600"
-              onClick={() => navigate('/dashboard')}
-            >
-              Back to Dashboard
-            </button>
+              <div className="flex flex-col gap-2 pt-4 border-t border-slate-100">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-2">
+                  <MdLock size={16} />
+                  Change Password
+                </label>
+                <input 
+                  type="password" 
+                  placeholder="Enter new password to change" 
+                  className="input-box bg-slate-50 border-slate-200 focus:bg-white" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <p className="text-xs text-slate-400 mt-1">Leave empty to keep your current password</p>
+              </div>
+
+            </div>
+
+            {error && <p className="text-red-500 text-sm font-medium pt-4">{error}</p>}
+            {message && <p className="text-green-500 text-sm font-medium pt-4">{message}</p>}
+
+            <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
+              <button type="submit" className="btn-primary w-auto px-8 py-3 rounded-lg shadow-md hover:shadow-lg transition-all">
+                Save Changes
+              </button>
+            </div>
           </form>
+
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

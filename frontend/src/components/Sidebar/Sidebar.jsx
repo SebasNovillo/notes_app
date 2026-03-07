@@ -59,7 +59,7 @@ const Sidebar = ({ folders, selectedFolderId, onSelectFolder, onAddFolder, onRen
   };
 
   return (
-    <div className='w-64 bg-slate-50 min-h-[calc(100vh-80px)] border-r border-slate-200 p-4 flex flex-col pt-8'>
+    <div className='w-full md:w-64 bg-slate-50 md:min-h-[calc(100vh-80px)] border-b md:border-b-0 md:border-r border-slate-200 p-4 flex flex-col pt-4 md:pt-8'>
       <div className='flex items-center justify-between mb-4'>
         <h3 className='text-xs font-bold text-slate-400 uppercase tracking-widest'>Folders</h3>
         <button onClick={() => setIsAdding(true)} className='text-slate-400 hover:text-primary transition-colors'>

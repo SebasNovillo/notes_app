@@ -323,7 +323,7 @@ const Home = () => {
         handleTagClick={handleTagClick}
       />
 
-      <div className='flex mx-auto min-h-screen'>
+      <div className='flex flex-col md:flex-row mx-auto min-h-screen'>
         {/* Sidebar */}
         <Sidebar 
           folders={folders}
@@ -337,7 +337,7 @@ const Home = () => {
         />
 
         {/* Main Content Area */}
-        <div className='flex-1 container mx-auto px-8 mt-8 mb-24'>
+        <div className='flex-1 w-full max-w-full overflow-hidden px-4 md:px-8 mt-4 md:mt-8 mb-24'>
           <div className='w-full'>
 
           {pinnedNotes.length > 0 && (
@@ -465,6 +465,7 @@ const Home = () => {
         style={{
           overlay: {
             backgroundColor: "rgba(0,0,0,0.2)",
+            zIndex: 999,
           },
         }}
         contentLabel=""
