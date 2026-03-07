@@ -32,6 +32,9 @@ const Home = () => {
     setOpenAddEditModal({ isShown: true, data: noteDetails, type: "edit" });
   };
 
+  const [draggedNoteId, setDraggedNoteId] = useState(null);
+  const [dragOverNoteId, setDragOverNoteId] = useState(null);
+
   // Get User Info
   const getUserInfo = async () => {
     try {
@@ -158,6 +161,7 @@ const Home = () => {
   };
 
   const handleDropNote = async (noteId, folderId) => {
+    setDraggedNoteId(null);
     try {
       const response = await axiosInstance.put("/update-note-folder/" + noteId, { folderId });
       if (response.data && response.data.note) {
@@ -168,8 +172,11 @@ const Home = () => {
     }
   };
 
-  const handleDropOnNote = async (draggedNoteId, targetNoteId, isPinnedSection) => {
-    if (draggedNoteId === targetNoteId) return;
+  const handleDropOnNote = async (draggedNoteIdParam, targetNoteId, isPinnedSection) => {
+    setDraggedNoteId(null);
+    setDragOverNoteId(null);
+    
+    if (draggedNoteIdParam === targetNoteId) return;
 
     // Figure out which list we are operating on
     const listToReorder = isPinnedSection ? [...pinnedNotes] : [...otherNotes];
@@ -212,6 +219,34 @@ const Home = () => {
     } catch (error) {
       console.log("Failed to update note positions", error);
       getAllNotes(); // Refresh to ensure backend state
+    }
+  };
+
+  const handleReorderFolders = async (draggedFolderId, targetFolderId) => {
+    if (draggedFolderId === targetFolderId) return;
+
+    const draggedIndex = folders.findIndex(f => f._id === draggedFolderId);
+    const targetIndex = folders.findIndex(f => f._id === targetFolderId);
+
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const listToReorder = [...folders];
+    const [draggedFolder] = listToReorder.splice(draggedIndex, 1);
+    listToReorder.splice(targetIndex, 0, draggedFolder);
+
+    const updatedPositions = listToReorder.map((folder, index) => ({
+      _id: folder._id,
+      position: index
+    }));
+
+    // Optimistic UI update
+    setFolders(listToReorder);
+
+    try {
+      await axiosInstance.put("/update-folder-positions", { folders: updatedPositions });
+    } catch (error) {
+      console.log("Failed to update folder positions", error);
+      getAllFolders();
     }
   };
 
@@ -298,6 +333,7 @@ const Home = () => {
           onRenameFolder={handleRenameFolder}
           onDeleteFolder={handleDeleteFolder}
           onDropNote={handleDropNote}
+          onReorderFolders={handleReorderFolders}
         />
 
         {/* Main Content Area */}
@@ -314,16 +350,26 @@ const Home = () => {
                 {pinnedNotes.map((item) => (
                   <div
                     key={item._id}
+                    className={`transition-all ${draggedNoteId === item._id ? 'dragging' : ''} ${dragOverNoteId === item._id ? 'drag-over-note' : ''}`}
                     draggable
                     onDragStart={(e) => {
+                      // setTimeout ensures the native drag ghost doesn't have the 'dragging' class yet
+                      setTimeout(() => setDraggedNoteId(item._id), 0);
                       e.dataTransfer.setData("noteId", item._id);
                     }}
+                    onDragEnd={() => {
+                      setDraggedNoteId(null);
+                      setDragOverNoteId(null);
+                    }}
+                    onDragEnter={() => setDragOverNoteId(item._id)}
+                    onDragLeave={() => setDragOverNoteId(null)}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
                       e.preventDefault();
-                      const draggedNoteId = e.dataTransfer.getData("noteId");
-                      if (draggedNoteId) {
-                         handleDropOnNote(draggedNoteId, item._id, true);
+                      setDragOverNoteId(null);
+                      const droppedNoteId = e.dataTransfer.getData("noteId");
+                      if (droppedNoteId) {
+                         handleDropOnNote(droppedNoteId, item._id, true);
                       }
                     }}
                   >
@@ -356,16 +402,25 @@ const Home = () => {
               {otherNotes.map((item) => (
                  <div
                  key={item._id}
+                 className={`transition-all ${draggedNoteId === item._id ? 'dragging' : ''} ${dragOverNoteId === item._id ? 'drag-over-note' : ''}`}
                  draggable
                  onDragStart={(e) => {
+                   setTimeout(() => setDraggedNoteId(item._id), 0);
                    e.dataTransfer.setData("noteId", item._id);
                  }}
+                 onDragEnd={() => {
+                   setDraggedNoteId(null);
+                   setDragOverNoteId(null);
+                 }}
+                 onDragEnter={() => setDragOverNoteId(item._id)}
+                 onDragLeave={() => setDragOverNoteId(null)}
                  onDragOver={(e) => e.preventDefault()}
                  onDrop={(e) => {
                    e.preventDefault();
-                   const draggedNoteId = e.dataTransfer.getData("noteId");
-                   if (draggedNoteId) {
-                      handleDropOnNote(draggedNoteId, item._id, false);
+                   setDragOverNoteId(null);
+                   const droppedNoteId = e.dataTransfer.getData("noteId");
+                   if (droppedNoteId) {
+                      handleDropOnNote(droppedNoteId, item._id, false);
                    }
                  }}
                >
@@ -398,7 +453,7 @@ const Home = () => {
       <button
         className='w-16 h-16 flex items-center justify-center rounded-2xl bg-primary hover:bg-blue-600 absolute right-10 bottom-10'
         onClick={() => {
-          setOpenAddEditModal({ isShown: true, type: "add", data: null });
+          setOpenAddEditModal({ isShown: true, type: "add", data: { folderId: selectedFolderId } });
         }}
       >
         <MdAdd className="text-[32px] text-white" />

@@ -9,6 +9,10 @@ const folderSchema = new Schema(
             ref: "User",
             required: true,
         },
+        position: {
+            type: Number,
+            default: 0
+        }
     },
     { timestamps: true }
 );

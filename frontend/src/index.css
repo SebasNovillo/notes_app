@@ -129,4 +129,20 @@
     border-radius: 2px;
     padding: 0 2px;
   }
+
+  /* Drag and Drop Helpers */
+  .dragging {
+    opacity: 0.4;
+    cursor: grabbing !important;
+  }
+
+  .drag-over {
+    border: 2px dashed var(--color-primary);
+    background-color: rgba(43, 133, 255, 0.05); /* Primary color with very low opacity */
+  }
+
+  .drag-over-note {
+    outline: 2px solid var(--color-primary);
+    transform: scale(1.02);
+  }
 }

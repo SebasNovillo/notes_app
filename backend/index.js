@@ -473,7 +473,7 @@ app.get("/get-all-folders", authenticateToken, async (req, res) => {
     const { userId } = req.user;
 
     try {
-        const folders = await Folder.find({ userId }).sort({ createdAt: -1 });
+        const folders = await Folder.find({ userId }).sort({ position: 1, createdAt: -1 });
         return res.json({ error: false, folders, message: "Folders retrieved successfully" });
     } catch (error) {
         return res.status(500).json({ error: true, message: "Internal Server Error" });
@@ -546,6 +546,32 @@ app.put("/update-note-positions", authenticateToken, async (req, res) => {
         return res.json({
             error: false,
             message: "Note positions updated successfully",
+        });
+    } catch (error) {
+        return res.status(500).json({ error: true, message: "Internal Server Error" });
+    }
+});
+
+// Update Folder Positions
+app.put("/update-folder-positions", authenticateToken, async (req, res) => {
+    const { folders } = req.body;
+    const { userId } = req.user;
+
+    if (!folders || !Array.isArray(folders)) {
+        return res.status(400).json({ error: true, message: "Invalid payload format" });
+    }
+
+    try {
+        for (const folderCmd of folders) {
+            await Folder.updateOne(
+                { _id: folderCmd._id, userId: userId },
+                { $set: { position: folderCmd.position } }
+            );
+        }
+
+        return res.json({
+            error: false,
+            message: "Folder positions updated successfully",
         });
     } catch (error) {
         return res.status(500).json({ error: true, message: "Internal Server Error" });

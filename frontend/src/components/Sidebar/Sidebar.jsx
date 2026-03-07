@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { MdAdd, MdFolder, MdDelete, MdEdit } from 'react-icons/md';
+import { MdAdd, MdFolder, MdDelete, MdEdit, MdDragIndicator } from 'react-icons/md';
 
-const Sidebar = ({ folders, selectedFolderId, onSelectFolder, onAddFolder, onRenameFolder, onDeleteFolder, onDropNote }) => {
+const Sidebar = ({ folders, selectedFolderId, onSelectFolder, onAddFolder, onRenameFolder, onDeleteFolder, onDropNote, onReorderFolders }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   
   const [editingFolderId, setEditingFolderId] = useState(null);
   const [editFolderName, setEditFolderName] = useState('');
+
+  const [dragOverFolderId, setDragOverFolderId] = useState(null);
+  const [draggedFolderId, setDraggedFolderId] = useState(null);
 
   const handleAddSubmit = (e) => {
     e.preventDefault();
@@ -27,15 +30,31 @@ const Sidebar = ({ folders, selectedFolderId, onSelectFolder, onAddFolder, onRen
   };
 
   // Drag and drop handlers
-  const handleDragOver = (e) => {
+  const handleDragOver = (e, folderId) => {
     e.preventDefault(); // Necessary to allow dropping
+    setDragOverFolderId(folderId);
   };
+
+  const handleDragLeave = () => {
+    setDragOverFolderId(null);
+  }
 
   const handleDrop = (e, folderId) => {
     e.preventDefault();
+    setDragOverFolderId(null);
+    setDraggedFolderId(null);
+
     const noteId = e.dataTransfer.getData('noteId');
+    const sourceFolderId = e.dataTransfer.getData('folderId');
+
     if (noteId) {
+      // Trying to drop a note into 'All Notes' is equivalent to removing it from folder
+      // But only if the note isn't dropped over 'All Notes' if it is already there? The backend handles `null`.
       onDropNote(noteId, folderId);
+    } else if (sourceFolderId && folderId !== null && sourceFolderId !== folderId) {
+      if (onReorderFolders) {
+        onReorderFolders(sourceFolderId, folderId);
+      }
     }
   };
 
@@ -68,8 +87,9 @@ const Sidebar = ({ folders, selectedFolderId, onSelectFolder, onAddFolder, onRen
           onClick={() => onSelectFolder(null)}
           className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ${
             selectedFolderId === null ? 'bg-primary/10 text-primary font-medium' : 'text-slate-600 hover:bg-slate-100'
-          }`}
-          onDragOver={handleDragOver}
+          } ${dragOverFolderId === null ? 'drag-over' : ''}`}
+          onDragOver={(e) => handleDragOver(e, null)}
+          onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, null)}
           title="Drop here to remove from any folder"
         >
@@ -80,14 +100,25 @@ const Sidebar = ({ folders, selectedFolderId, onSelectFolder, onAddFolder, onRen
         {folders.map(folder => (
           <div 
             key={folder._id}
+            draggable
+            onDragStart={(e) => {
+               setDraggedFolderId(folder._id);
+               e.dataTransfer.setData('folderId', folder._id);
+            }}
+            onDragEnd={() => {
+               setDraggedFolderId(null);
+               setDragOverFolderId(null);
+            }}
             onClick={() => onSelectFolder(folder._id)}
-            className={`group flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ${
+            className={`group flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors rtl:gap-reverse ${
               selectedFolderId === folder._id ? 'bg-primary/10 text-primary font-medium' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-            onDragOver={handleDragOver}
+            } ${dragOverFolderId === folder._id ? 'drag-over' : ''} ${draggedFolderId === folder._id ? 'dragging' : ''}`}
+            onDragOver={(e) => handleDragOver(e, folder._id)}
+            onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, folder._id)}
           >
-            <MdFolder size={18} />
+            <MdDragIndicator size={16} className='opacity-0 group-hover:opacity-40 hover:opacity-100 cursor-grab text-slate-400' />
+            <MdFolder size={18} className='-ml-1' />
             
             {editingFolderId === folder._id ? (
               <form onSubmit={(e) => handleEditSubmit(e, folder._id)} className='flex-1'>
