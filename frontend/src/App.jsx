@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import Home from './pages/Home/Home'
 import LogIn from './pages/LogIn/LogIn';
 import SignUp from './pages/SignUp/SignUp';
+import Profile from './pages/Profile/Profile';
 
 const routes = (
   <Router>
@@ -10,6 +11,7 @@ const routes = (
       <Route path='/dashboard' exact element={<Home />} />
       <Route path='/login' exact element={<LogIn />} />
       <Route path='/signup' exact element={<SignUp />} />
+      <Route path='/profile' exact element={<Profile />} />
     </Routes>
   </Router>
 );

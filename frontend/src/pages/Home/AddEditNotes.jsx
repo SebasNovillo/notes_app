@@ -117,6 +117,7 @@ const AddEditNotes = ({ noteData, type, getAllNotes, onClose }) => {
                 title,
                 content,
                 tags,
+                folderId: noteData?.folderId || null,
             });
 
             if (response.data && response.data.note) {
@@ -139,6 +140,7 @@ const AddEditNotes = ({ noteData, type, getAllNotes, onClose }) => {
                 title,
                 content,
                 tags,
+                folderId: noteData.folderId || null,
             });
 
             if (response.data && response.data.note) {

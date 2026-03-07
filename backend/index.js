@@ -9,6 +9,7 @@ const bcrypt = require("bcrypt");
 const { authenticateToken } = require("./utilities");
 const User = require("./models/user.model");
 const Note = require("./models/note.model");
+const Folder = require("./models/folder.model");
 
 const app = express();
 
@@ -174,9 +175,40 @@ app.post("/login", async (req, res) => {
     }
 });
 
+// Update User Profile
+app.put("/update-user", authenticateToken, async (req, res) => {
+    const { fullName, password } = req.body;
+    const { userId } = req.user;
+
+    try {
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({ error: true, message: "User not found" });
+        }
+
+        if (fullName) user.fullName = fullName;
+        
+        if (password) {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            user.password = hashedPassword;
+        }
+
+        await user.save();
+
+        return res.json({
+            error: false,
+            user: toSafeUser(user),
+            message: "User profile updated successfully",
+        });
+    } catch (error) {
+        return res.status(500).json({ error: true, message: "Internal Server Error" });
+    }
+});
+
 // Add Note
 app.post("/add-note", authenticateToken, async (req, res) => {
-    const { title, content, tags } = req.body;
+    const { title, content, tags, folderId } = req.body;
     const { userId } = req.user;
 
 
@@ -196,6 +228,7 @@ app.post("/add-note", authenticateToken, async (req, res) => {
             content,
             tags: tags || [],
             userId: userId,
+            folderId: folderId || null,
         });
 
         await note.save();
@@ -216,10 +249,10 @@ app.post("/add-note", authenticateToken, async (req, res) => {
 // Edit Note
 app.put("/edit-note/:noteId", authenticateToken, async (req, res) => {
     const noteId = req.params.noteId;
-    const { title, content, tags, isPinned } = req.body;
+    const { title, content, tags, isPinned, folderId } = req.body;
     const { userId } = req.user;
 
-    if (!title && !content && !tags) {
+    if (!title && !content && !tags && isPinned === undefined && folderId === undefined) {
         return res
             .status(400)
             .json({ error: true, message: "No changes provided" });
@@ -236,6 +269,7 @@ app.put("/edit-note/:noteId", authenticateToken, async (req, res) => {
         if (content) note.content = content;
         if (tags) note.tags = tags;
         if (isPinned !== undefined) note.isPinned = isPinned;
+        if (folderId !== undefined) note.folderId = folderId || null;
 
         await note.save();
 
@@ -257,7 +291,7 @@ app.get("/get-all-notes", authenticateToken, async (req, res) => {
     const { userId } = req.user;
 
     try {
-        const notes = await Note.find({ userId: userId }).sort({ isPinned: -1 });
+        const notes = await Note.find({ userId: userId }).sort({ isPinned: -1, position: 1, createdAt: -1 });
 
         return res.json({
             error: false,
@@ -389,6 +423,134 @@ app.get("/search-notes", authenticateToken, async (req, res) => {
     }
 });
 
+// Update Note Folder (Drag and drop)
+app.put("/update-note-folder/:noteId", authenticateToken, async (req, res) => {
+    const noteId = req.params.noteId;
+    const { folderId } = req.body;
+    const { userId } = req.user;
+
+    try {
+        const note = await Note.findOne({ _id: noteId, userId: userId });
+
+        if (!note) {
+            return res.status(404).json({ error: true, message: "Note not found" });
+        }
+
+        note.folderId = folderId || null;
+        await note.save();
+
+        return res.json({
+            error: false,
+            note,
+            message: "Note moved successfully",
+        });
+    } catch (error) {
+        return res.status(500).json({ error: true, message: "Internal Server Error" });
+    }
+});
+
+// Add Folder
+app.post("/add-folder", authenticateToken, async (req, res) => {
+    const { name } = req.body;
+    const { userId } = req.user;
+
+    if (!name) {
+        return res.status(400).json({ error: true, message: "Folder name is required" });
+    }
+
+    try {
+        const folder = new Folder({ name, userId });
+        await folder.save();
+
+        return res.json({ error: false, folder, message: "Folder created successfully" });
+    } catch (error) {
+        return res.status(500).json({ error: true, message: "Internal Server Error" });
+    }
+});
+
+// Get All Folders
+app.get("/get-all-folders", authenticateToken, async (req, res) => {
+    const { userId } = req.user;
+
+    try {
+        const folders = await Folder.find({ userId }).sort({ createdAt: -1 });
+        return res.json({ error: false, folders, message: "Folders retrieved successfully" });
+    } catch (error) {
+        return res.status(500).json({ error: true, message: "Internal Server Error" });
+    }
+});
+
+// Update Folder
+app.put("/update-folder/:folderId", authenticateToken, async (req, res) => {
+    const folderId = req.params.folderId;
+    const { name } = req.body;
+    const { userId } = req.user;
+
+    if (!name) {
+        return res.status(400).json({ error: true, message: "Folder name is required" });
+    }
+
+    try {
+        const folder = await Folder.findOne({ _id: folderId, userId });
+        if (!folder) {
+            return res.status(404).json({ error: true, message: "Folder not found" });
+        }
+
+        folder.name = name;
+        await folder.save();
+
+        return res.json({ error: false, folder, message: "Folder renamed successfully" });
+    } catch (error) {
+        return res.status(500).json({ error: true, message: "Internal Server Error" });
+    }
+});
+
+// Delete Folder
+app.delete("/delete-folder/:folderId", authenticateToken, async (req, res) => {
+    const folderId = req.params.folderId;
+    const { userId } = req.user;
+
+    try {
+        const folder = await Folder.findOne({ _id: folderId, userId });
+        if (!folder) {
+            return res.status(404).json({ error: true, message: "Folder not found" });
+        }
+
+        // Also detach folder from all notes
+        await Note.updateMany({ folderId, userId }, { $set: { folderId: null } });
+        await Folder.deleteOne({ _id: folderId, userId });
+
+        return res.json({ error: false, message: "Folder deleted successfully" });
+    } catch (error) {
+        return res.status(500).json({ error: true, message: "Internal Server Error" });
+    }
+});
+
+// Update Note Positions
+app.put("/update-note-positions", authenticateToken, async (req, res) => {
+    const { notes } = req.body;
+    const { userId } = req.user;
+
+    if (!notes || !Array.isArray(notes)) {
+        return res.status(400).json({ error: true, message: "Invalid payload format" });
+    }
+
+    try {
+        for (const noteCmd of notes) {
+            await Note.updateOne(
+                { _id: noteCmd._id, userId: userId },
+                { $set: { position: noteCmd.position } }
+            );
+        }
+
+        return res.json({
+            error: false,
+            message: "Note positions updated successfully",
+        });
+    } catch (error) {
+        return res.status(500).json({ error: true, message: "Internal Server Error" });
+    }
+});
 
 
 app.listen(8000, () => console.log("✅ Server running on port 8000"));

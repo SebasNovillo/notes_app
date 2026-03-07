@@ -6,6 +6,7 @@ import AddEditNotes from './AddEditNotes'
 import Modal from "react-modal"
 import axiosInstance from '../../utils/axiosInstance';
 import { useNavigate } from 'react-router-dom';
+import Sidebar from '../../components/Sidebar/Sidebar';
 
 const Home = () => {
 
@@ -21,6 +22,9 @@ const Home = () => {
   const [allTags, setAllTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [folders, setFolders] = useState([]);
+  const [selectedFolderId, setSelectedFolderId] = useState(null);
 
   const navigate = useNavigate();
 
@@ -104,6 +108,113 @@ const Home = () => {
     }
   }
 
+  // --- Folder Handlers ---
+  const getAllFolders = async () => {
+    try {
+      const response = await axiosInstance.get("/get-all-folders");
+      if (response.data && response.data.folders) {
+        setFolders(response.data.folders);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleAddFolder = async (name) => {
+    try {
+      const response = await axiosInstance.post("/add-folder", { name });
+      if (response.data && response.data.folder) {
+        getAllFolders();
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleRenameFolder = async (folderId, newName) => {
+    try {
+      const response = await axiosInstance.put("/update-folder/" + folderId, { name: newName });
+      if (response.data && response.data.folder) {
+        getAllFolders();
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleDeleteFolder = async (folderId) => {
+    try {
+      const response = await axiosInstance.delete("/delete-folder/" + folderId);
+      if (response.data && !response.data.error) {
+        if (selectedFolderId === folderId) {
+          setSelectedFolderId(null);
+        }
+        getAllFolders();
+        getAllNotes(); // Because some notes might have lost their folder
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleDropNote = async (noteId, folderId) => {
+    try {
+      const response = await axiosInstance.put("/update-note-folder/" + noteId, { folderId });
+      if (response.data && response.data.note) {
+        getAllNotes();
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleDropOnNote = async (draggedNoteId, targetNoteId, isPinnedSection) => {
+    if (draggedNoteId === targetNoteId) return;
+
+    // Figure out which list we are operating on
+    const listToReorder = isPinnedSection ? [...pinnedNotes] : [...otherNotes];
+    
+    const draggedIndex = listToReorder.findIndex(n => n._id === draggedNoteId);
+    const targetIndex = listToReorder.findIndex(n => n._id === targetNoteId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+       // Cannot reorder between pinned and unpinned, or note missing
+       return;
+    }
+
+    // Reorder array locally
+    const [draggedNote] = listToReorder.splice(draggedIndex, 1);
+    listToReorder.splice(targetIndex, 0, draggedNote);
+
+    // Apply new positions sequentially
+    const updatedPositions = listToReorder.map((note, index) => ({
+      _id: note._id,
+      position: index
+    }));
+
+    // Optimistic UI update
+    setAllNotes(prevNotes => {
+      const newAllNotes = [...prevNotes];
+      updatedPositions.forEach(pos => {
+        const note = newAllNotes.find(n => n._id === pos._id);
+        if (note) note.position = pos.position;
+      });
+      // Sort immediately so UI doesn't jump back before API returns
+      return newAllNotes.sort((a, b) => {
+        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+        if (a.position !== b.position) return a.position - b.position;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+    });
+
+    try {
+      await axiosInstance.put("/update-note-positions", { notes: updatedPositions });
+    } catch (error) {
+      console.log("Failed to update note positions", error);
+      getAllNotes(); // Refresh to ensure backend state
+    }
+  };
+
   // Search for a Note
   const onSearchNote = async (query) => {
     try {
@@ -137,11 +248,17 @@ const Home = () => {
   // Notes filtered only by search (but not yet by tags)
   const searchFilteredNotes = allNotes; // If using local search, this would be different. But search is done via API and updates allNotes.
 
-  const filteredNotes = selectedTags.length > 0
+  // Filter by tags
+  let filteredNotes = selectedTags.length > 0
     ? allNotes.filter((note) =>
       selectedTags.every((tag) => note.tags.includes(tag))
     )
     : allNotes;
+    
+  // Filter by folder
+  if (selectedFolderId !== null) {
+    filteredNotes = filteredNotes.filter(note => note.folderId === selectedFolderId);
+  }
 
   // We want pinned notes to stay visible even if they don't match the tag filter? 
   // Most users expect Pinned to be 'Permanent' at the top.
@@ -153,6 +270,7 @@ const Home = () => {
     getAllNotes();
     getUserInfo();
     getAllTags();
+    getAllFolders();
     return () => { };
   }, []);
 
@@ -170,8 +288,21 @@ const Home = () => {
         handleTagClick={handleTagClick}
       />
 
-      <div className='container mx-auto px-8 mt-8 mb-24'>
-        <div className='w-full'>
+      <div className='flex mx-auto min-h-screen'>
+        {/* Sidebar */}
+        <Sidebar 
+          folders={folders}
+          selectedFolderId={selectedFolderId}
+          onSelectFolder={setSelectedFolderId}
+          onAddFolder={handleAddFolder}
+          onRenameFolder={handleRenameFolder}
+          onDeleteFolder={handleDeleteFolder}
+          onDropNote={handleDropNote}
+        />
+
+        {/* Main Content Area */}
+        <div className='flex-1 container mx-auto px-8 mt-8 mb-24'>
+          <div className='w-full'>
 
           {pinnedNotes.length > 0 && (
             <div className='mb-10'>
@@ -181,19 +312,34 @@ const Home = () => {
               </h3>
               <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
                 {pinnedNotes.map((item) => (
-                  <NoteCard
+                  <div
                     key={item._id}
-                    title={item.title}
-                    date={item.createdAt}
-                    content={item.content}
-                    tags={item.tags}
-                    isPinned={item.isPinned}
-                    onEdit={() => handleEdit(item)}
-                    onDelete={() => deleteNote(item)}
-                    onPinNote={() => updateIsPinned(item)}
-                    onTagClick={handleTagClick}
-                    searchQuery={searchQuery}
-                  />
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("noteId", item._id);
+                    }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const draggedNoteId = e.dataTransfer.getData("noteId");
+                      if (draggedNoteId) {
+                         handleDropOnNote(draggedNoteId, item._id, true);
+                      }
+                    }}
+                  >
+                    <NoteCard
+                      title={item.title}
+                      date={item.createdAt}
+                      content={item.content}
+                      tags={item.tags}
+                      isPinned={item.isPinned}
+                      onEdit={() => handleEdit(item)}
+                      onDelete={() => deleteNote(item)}
+                      onPinNote={() => updateIsPinned(item)}
+                      onTagClick={handleTagClick}
+                      searchQuery={searchQuery}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
@@ -208,19 +354,34 @@ const Home = () => {
             )}
             <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
               {otherNotes.map((item) => (
-                <NoteCard
-                  key={item._id}
-                  title={item.title}
-                  date={item.createdAt}
-                  content={item.content}
-                  tags={item.tags}
-                  isPinned={item.isPinned}
-                  onEdit={() => handleEdit(item)}
-                  onDelete={() => deleteNote(item)}
-                  onPinNote={() => updateIsPinned(item)}
-                  onTagClick={handleTagClick}
-                  searchQuery={searchQuery}
-                />
+                 <div
+                 key={item._id}
+                 draggable
+                 onDragStart={(e) => {
+                   e.dataTransfer.setData("noteId", item._id);
+                 }}
+                 onDragOver={(e) => e.preventDefault()}
+                 onDrop={(e) => {
+                   e.preventDefault();
+                   const draggedNoteId = e.dataTransfer.getData("noteId");
+                   if (draggedNoteId) {
+                      handleDropOnNote(draggedNoteId, item._id, false);
+                   }
+                 }}
+               >
+                 <NoteCard
+                   title={item.title}
+                   date={item.createdAt}
+                   content={item.content}
+                   tags={item.tags}
+                   isPinned={item.isPinned}
+                   onEdit={() => handleEdit(item)}
+                   onDelete={() => deleteNote(item)}
+                   onPinNote={() => updateIsPinned(item)}
+                   onTagClick={handleTagClick}
+                   searchQuery={searchQuery}
+                 />
+               </div>
               ))}
             </div>
           </div>
@@ -230,6 +391,7 @@ const Home = () => {
               <p className='text-slate-600 text-lg font-medium'>No notes found matching your criteria</p>
             </div>
           )}
+        </div>
         </div>
       </div>
 

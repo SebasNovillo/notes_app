@@ -41,7 +41,13 @@ const NoteCard = ({
     const highlightedContent = highlight(plainContent, searchQuery);
 
     return (
-        <div className='group border-none shadow-sm rounded-xl p-5 bg-white hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] relative flex flex-col h-full'>
+        <div 
+            draggable 
+            onDragStart={(e) => {
+                e.dataTransfer.setData('noteId', title); // Will pass the actual noteData._id from Home wrapper
+            }}
+            className='group border-none shadow-sm rounded-xl p-5 bg-white hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] relative flex flex-col h-full cursor-grab active:cursor-grabbing'
+        >
             <div className='flex items-start justify-between'>
                 <div className='flex flex-col gap-1 pr-6'>
                     <h6
