@@ -18,7 +18,6 @@ const Home = () => {
 
   const [allNotes, setAllNotes] = useState([]);
   const [userInfo, setUserInfo] = useState(null);
-  const [isSearch, setIsSearch] = useState(false);
   const [allTags, setAllTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -43,7 +42,7 @@ const Home = () => {
         setUserInfo(response.data.user);
       }
     } catch (error) {
-      if (error.response.status === 401) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
         localStorage.clear();
         navigate("/login");
       }
@@ -181,7 +180,7 @@ const Home = () => {
     // Figure out which list we are operating on
     const listToReorder = isPinnedSection ? [...pinnedNotes] : [...otherNotes];
     
-    const draggedIndex = listToReorder.findIndex(n => n._id === draggedNoteId);
+    const draggedIndex = listToReorder.findIndex(n => n._id === draggedNoteIdParam);
     const targetIndex = listToReorder.findIndex(n => n._id === targetNoteId);
 
     if (draggedIndex === -1 || targetIndex === -1) {
@@ -258,7 +257,6 @@ const Home = () => {
       });
 
       if (response.data && response.data.notes) {
-        setIsSearch(true);
         setAllNotes(response.data.notes);
       }
     } catch (error) {
@@ -267,7 +265,6 @@ const Home = () => {
   };
 
   const handleClearSearch = () => {
-    setIsSearch(false);
     setSearchQuery("");
     getAllNotes();
   };
@@ -279,9 +276,6 @@ const Home = () => {
       setSelectedTags([...selectedTags, tag]);
     }
   };
-
-  // Notes filtered only by search (but not yet by tags)
-  const searchFilteredNotes = allNotes; // If using local search, this would be different. But search is done via API and updates allNotes.
 
   // Filter by tags
   let filteredNotes = selectedTags.length > 0
@@ -295,10 +289,7 @@ const Home = () => {
     filteredNotes = filteredNotes.filter(note => note.folderId === selectedFolderId);
   }
 
-  // We want pinned notes to stay visible even if they don't match the tag filter? 
-  // Most users expect Pinned to be 'Permanent' at the top.
-  // Let's make pinnedNotes only respect search, but not the sidebar tag filter.
-  const pinnedNotes = allNotes.filter(note => note.isPinned);
+  const pinnedNotes = filteredNotes.filter(note => note.isPinned);
   const otherNotes = filteredNotes.filter(note => !note.isPinned);
 
   useEffect(() => {
@@ -487,3 +478,4 @@ const Home = () => {
 }
 
 export default Home
+

@@ -1,5 +1,8 @@
 # Environment variables
 .env
+**/.env
+**/.env.local
+backend/config.json
 
 # Node modules
 node_modules/

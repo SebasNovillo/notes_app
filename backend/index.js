@@ -1,5 +1,5 @@
+require("dotenv").config({ path: process.env.DOTENV_PATH || ".env.local" });
 require("dotenv").config();
-
 const mongoose = require("mongoose");
 const express = require("express");
 const cors = require("cors");
@@ -12,26 +12,34 @@ const Note = require("./models/note.model");
 const Folder = require("./models/folder.model");
 
 const app = express();
+const PORT = process.env.PORT || 8000;
+const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean)
+    : ["http://localhost:5173"];
 
 app.use(express.json());
 app.use(
     cors({
-        origin: "*",
+        origin(origin, callback) {
+            if (!origin || allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+
+            return callback(new Error("Origin not allowed by CORS"));
+        },
     })
 );
 
-// Request Logger
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     next();
 });
 
-// ---- Mongo connection (with logs) ----
 mongoose
     .connect(process.env.MONGODB_URI)
-    .then(() => console.log("✅ MongoDB connected"))
+    .then(() => console.log("MongoDB connected"))
     .catch((err) => {
-        console.error("❌ MongoDB connection error:", err.message);
+        console.error("MongoDB connection error:", err.message);
         process.exit(1);
     });
 
@@ -48,22 +56,27 @@ function toSafeUser(user) {
     };
 }
 
-// Create Account
+function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 app.post("/create-account", async (req, res) => {
     try {
         const { fullName, email, password, confirmPassword } = req.body;
+        const normalizedEmail = email?.trim().toLowerCase();
 
-        if (!fullName) {
+        if (!fullName?.trim()) {
             return res.status(400).json({ error: true, message: "Full Name is required" });
         }
-        if (!email) {
+        if (!normalizedEmail) {
             return res.status(400).json({ error: true, message: "Email is required" });
         }
         if (!password) {
             return res.status(400).json({ error: true, message: "Password is required" });
         }
-
-        // NEW: confirm password checks
+        if (password.length < 8) {
+            return res.status(400).json({ error: true, message: "Password must be at least 8 characters" });
+        }
         if (!confirmPassword) {
             return res.status(400).json({ error: true, message: "Confirm Password is required" });
         }
@@ -71,23 +84,21 @@ app.post("/create-account", async (req, res) => {
             return res.status(400).json({ error: true, message: "Passwords do not match" });
         }
 
-        const isUser = await User.findOne({ email });
+        const isUser = await User.findOne({ email: normalizedEmail });
         if (isUser) {
             return res.status(409).json({ error: true, message: "User already exists" });
         }
 
-        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const user = new User({
-            fullName,
-            email,
+            fullName: fullName.trim(),
+            email: normalizedEmail,
             password: hashedPassword,
         });
 
         await user.save();
 
-        // Token with userId only
         const accessToken = jwt.sign(
             { userId: user._id },
             process.env.ACCESS_TOKEN_SECRET,
@@ -105,7 +116,6 @@ app.post("/create-account", async (req, res) => {
     }
 });
 
-// Protected route to test JWT quickly
 app.get("/get-user", authenticateToken, async (req, res) => {
     try {
         const user = await User.findById(req.user.userId).select("-password");
@@ -114,7 +124,6 @@ app.get("/get-user", authenticateToken, async (req, res) => {
         }
 
         return res.json({ error: false, user: toSafeUser(user) });
-
     } catch (err) {
         return res.status(500).json({ error: true, message: err.message });
     }
@@ -123,17 +132,17 @@ app.get("/get-user", authenticateToken, async (req, res) => {
 app.get("/protected", authenticateToken, (req, res) => {
     return res.json({
         error: false,
-        message: "You have access ✅",
-        user: req.user, // { userId: "..." }
+        message: "You have access",
+        user: req.user,
     });
 });
 
-// Login Account
 app.post("/login", async (req, res) => {
     try {
         const { email, password } = req.body;
+        const normalizedEmail = email?.trim().toLowerCase();
 
-        if (!email) {
+        if (!normalizedEmail) {
             return res.status(400).json({ error: true, message: "Email is required" });
         }
 
@@ -141,13 +150,12 @@ app.post("/login", async (req, res) => {
             return res.status(400).json({ error: true, message: "Password is required" });
         }
 
-        const userInfo = await User.findOne({ email });
+        const userInfo = await User.findOne({ email: normalizedEmail });
 
         if (!userInfo) {
             return res.status(404).json({ error: true, message: "User not found" });
         }
 
-        // Compare hashed password
         const isPasswordValid = await bcrypt.compare(password, userInfo.password);
         if (!isPasswordValid) {
             return res.status(400).json({
@@ -156,7 +164,6 @@ app.post("/login", async (req, res) => {
             });
         }
 
-        // Token with userId only
         const accessToken = jwt.sign(
             { userId: userInfo._id },
             process.env.ACCESS_TOKEN_SECRET,
@@ -169,13 +176,11 @@ app.post("/login", async (req, res) => {
             user: toSafeUser(userInfo),
             accessToken,
         });
-
     } catch (err) {
         return res.status(500).json({ error: true, message: err.message });
     }
 });
 
-// Update User Profile
 app.put("/update-user", authenticateToken, async (req, res) => {
     const { fullName, password } = req.body;
     const { userId } = req.user;
@@ -187,9 +192,12 @@ app.put("/update-user", authenticateToken, async (req, res) => {
             return res.status(404).json({ error: true, message: "User not found" });
         }
 
-        if (fullName) user.fullName = fullName;
-        
+        if (fullName?.trim()) user.fullName = fullName.trim();
+
         if (password) {
+            if (password.length < 8) {
+                return res.status(400).json({ error: true, message: "Password must be at least 8 characters" });
+            }
             const hashedPassword = await bcrypt.hash(password, 10);
             user.password = hashedPassword;
         }
@@ -206,20 +214,16 @@ app.put("/update-user", authenticateToken, async (req, res) => {
     }
 });
 
-// Add Note
 app.post("/add-note", authenticateToken, async (req, res) => {
     const { title, content, tags, folderId } = req.body;
     const { userId } = req.user;
-
 
     if (!title) {
         return res.status(400).json({ error: true, message: "Title is required" });
     }
 
     if (!content) {
-        return res
-            .status(400)
-            .json({ error: true, message: "Content is required" });
+        return res.status(400).json({ error: true, message: "Content is required" });
     }
 
     try {
@@ -227,7 +231,7 @@ app.post("/add-note", authenticateToken, async (req, res) => {
             title,
             content,
             tags: tags || [],
-            userId: userId,
+            userId,
             folderId: folderId || null,
         });
 
@@ -236,7 +240,7 @@ app.post("/add-note", authenticateToken, async (req, res) => {
         return res.json({
             error: false,
             note,
-            message: "Note added succesfully",
+            message: "Note added successfully",
         });
     } catch (error) {
         return res.status(500).json({
@@ -246,20 +250,17 @@ app.post("/add-note", authenticateToken, async (req, res) => {
     }
 });
 
-// Edit Note
 app.put("/edit-note/:noteId", authenticateToken, async (req, res) => {
     const noteId = req.params.noteId;
     const { title, content, tags, isPinned, folderId } = req.body;
     const { userId } = req.user;
 
     if (!title && !content && !tags && isPinned === undefined && folderId === undefined) {
-        return res
-            .status(400)
-            .json({ error: true, message: "No changes provided" });
+        return res.status(400).json({ error: true, message: "No changes provided" });
     }
 
     try {
-        const note = await Note.findOne({ _id: noteId, userId: userId });
+        const note = await Note.findOne({ _id: noteId, userId });
 
         if (!note) {
             return res.status(404).json({ error: true, message: "Note not found" });
@@ -286,12 +287,11 @@ app.put("/edit-note/:noteId", authenticateToken, async (req, res) => {
     }
 });
 
-// Get All Notes
 app.get("/get-all-notes", authenticateToken, async (req, res) => {
     const { userId } = req.user;
 
     try {
-        const notes = await Note.find({ userId: userId }).sort({ isPinned: -1, position: 1, createdAt: -1 });
+        const notes = await Note.find({ userId }).sort({ isPinned: -1, position: 1, createdAt: -1 });
 
         return res.json({
             error: false,
@@ -306,19 +306,15 @@ app.get("/get-all-notes", authenticateToken, async (req, res) => {
     }
 });
 
-// Get All Tags
 app.get("/get-all-tags", authenticateToken, async (req, res) => {
     const { userId } = req.user;
 
     try {
-        const notes = await Note.find({ userId: userId });
-
-        // Extract all tags from notes
+        const notes = await Note.find({ userId });
         const allTags = notes.reduce((acc, note) => {
             return [...acc, ...note.tags];
         }, []);
 
-        // Get unique tags
         const uniqueTags = [...new Set(allTags)];
 
         return res.json({
@@ -334,19 +330,18 @@ app.get("/get-all-tags", authenticateToken, async (req, res) => {
     }
 });
 
-// Delete Note
 app.delete("/delete-note/:noteId", authenticateToken, async (req, res) => {
     const noteId = req.params.noteId;
     const { userId } = req.user;
 
     try {
-        const note = await Note.findOne({ _id: noteId, userId: userId });
+        const note = await Note.findOne({ _id: noteId, userId });
 
         if (!note) {
             return res.status(404).json({ error: true, message: "Note not found" });
         }
 
-        await Note.deleteOne({ _id: noteId, userId: userId });
+        await Note.deleteOne({ _id: noteId, userId });
 
         return res.json({
             error: false,
@@ -360,14 +355,13 @@ app.delete("/delete-note/:noteId", authenticateToken, async (req, res) => {
     }
 });
 
-// Update IsPinned
 app.put("/update-note-pinned/:noteId", authenticateToken, async (req, res) => {
     const noteId = req.params.noteId;
     const { isPinned } = req.body;
     const { userId } = req.user;
 
     try {
-        const note = await Note.findOne({ _id: noteId, userId: userId });
+        const note = await Note.findOne({ _id: noteId, userId });
 
         if (!note) {
             return res.status(404).json({ error: true, message: "Note not found" });
@@ -390,23 +384,22 @@ app.put("/update-note-pinned/:noteId", authenticateToken, async (req, res) => {
     }
 });
 
-// Search Notes
 app.get("/search-notes", authenticateToken, async (req, res) => {
     const { userId } = req.user;
     const { query } = req.query;
 
-    if (!query) {
-        return res
-            .status(400)
-            .json({ error: true, message: "Search query is required" });
+    if (!query?.trim()) {
+        return res.status(400).json({ error: true, message: "Search query is required" });
     }
 
     try {
+        const safeQuery = escapeRegex(query.trim());
         const matchingNotes = await Note.find({
-            userId: userId,
+            userId,
             $or: [
-                { title: { $regex: new RegExp(query, "i") } },
-                { tags: { $regex: new RegExp(query, "i") } },
+                { title: { $regex: new RegExp(safeQuery, "i") } },
+                { content: { $regex: new RegExp(safeQuery, "i") } },
+                { tags: { $regex: new RegExp(safeQuery, "i") } },
             ],
         });
 
@@ -423,14 +416,13 @@ app.get("/search-notes", authenticateToken, async (req, res) => {
     }
 });
 
-// Update Note Folder (Drag and drop)
 app.put("/update-note-folder/:noteId", authenticateToken, async (req, res) => {
     const noteId = req.params.noteId;
     const { folderId } = req.body;
     const { userId } = req.user;
 
     try {
-        const note = await Note.findOne({ _id: noteId, userId: userId });
+        const note = await Note.findOne({ _id: noteId, userId });
 
         if (!note) {
             return res.status(404).json({ error: true, message: "Note not found" });
@@ -449,7 +441,6 @@ app.put("/update-note-folder/:noteId", authenticateToken, async (req, res) => {
     }
 });
 
-// Add Folder
 app.post("/add-folder", authenticateToken, async (req, res) => {
     const { name } = req.body;
     const { userId } = req.user;
@@ -468,7 +459,6 @@ app.post("/add-folder", authenticateToken, async (req, res) => {
     }
 });
 
-// Get All Folders
 app.get("/get-all-folders", authenticateToken, async (req, res) => {
     const { userId } = req.user;
 
@@ -480,7 +470,6 @@ app.get("/get-all-folders", authenticateToken, async (req, res) => {
     }
 });
 
-// Update Folder
 app.put("/update-folder/:folderId", authenticateToken, async (req, res) => {
     const folderId = req.params.folderId;
     const { name } = req.body;
@@ -505,7 +494,6 @@ app.put("/update-folder/:folderId", authenticateToken, async (req, res) => {
     }
 });
 
-// Delete Folder
 app.delete("/delete-folder/:folderId", authenticateToken, async (req, res) => {
     const folderId = req.params.folderId;
     const { userId } = req.user;
@@ -516,7 +504,6 @@ app.delete("/delete-folder/:folderId", authenticateToken, async (req, res) => {
             return res.status(404).json({ error: true, message: "Folder not found" });
         }
 
-        // Also detach folder from all notes
         await Note.updateMany({ folderId, userId }, { $set: { folderId: null } });
         await Folder.deleteOne({ _id: folderId, userId });
 
@@ -526,7 +513,6 @@ app.delete("/delete-folder/:folderId", authenticateToken, async (req, res) => {
     }
 });
 
-// Update Note Positions
 app.put("/update-note-positions", authenticateToken, async (req, res) => {
     const { notes } = req.body;
     const { userId } = req.user;
@@ -538,7 +524,7 @@ app.put("/update-note-positions", authenticateToken, async (req, res) => {
     try {
         for (const noteCmd of notes) {
             await Note.updateOne(
-                { _id: noteCmd._id, userId: userId },
+                { _id: noteCmd._id, userId },
                 { $set: { position: noteCmd.position } }
             );
         }
@@ -552,7 +538,6 @@ app.put("/update-note-positions", authenticateToken, async (req, res) => {
     }
 });
 
-// Update Folder Positions
 app.put("/update-folder-positions", authenticateToken, async (req, res) => {
     const { folders } = req.body;
     const { userId } = req.user;
@@ -564,7 +549,7 @@ app.put("/update-folder-positions", authenticateToken, async (req, res) => {
     try {
         for (const folderCmd of folders) {
             await Folder.updateOne(
-                { _id: folderCmd._id, userId: userId },
+                { _id: folderCmd._id, userId },
                 { $set: { position: folderCmd.position } }
             );
         }
@@ -578,7 +563,7 @@ app.put("/update-folder-positions", authenticateToken, async (req, res) => {
     }
 });
 
-
-app.listen(8000, () => console.log("✅ Server running on port 8000"));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 module.exports = app;
+
