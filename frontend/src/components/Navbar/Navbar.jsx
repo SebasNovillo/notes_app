@@ -22,15 +22,17 @@ const Navbar = ({
   };
 
   const handleSearch = () => {
-    if (searchQuery) {
+    if (searchQuery && onSearchNote) {
       onSearchNote(searchQuery);
     }
   };
 
   const onClearSearch = () => {
-    setSearchQuery("");
-    handleClearSearch();
+    setSearchQuery?.("");
+    handleClearSearch?.();
   };
+
+  const showSearch = Boolean(userInfo && onSearchNote && handleClearSearch && setSearchQuery);
 
   return (
     <div className='bg-white flex items-center justify-between px-4 md:px-8 py-4 shadow-sm z-50 sticky top-0 border-b border-slate-50'>
@@ -38,7 +40,7 @@ const Navbar = ({
         <h2 className='text-2xl font-semibold text-slate-900 py-1 tracking-tight'>Notes</h2>
       </Link>
 
-      {userInfo && (
+      {showSearch && (
         <div className='flex-1 flex justify-center items-center gap-2 md:gap-4 px-2 md:px-8'>
           <SearchBar
             value={searchQuery}

@@ -1,8 +1,9 @@
 import React from 'react';
 
-import { MdOutlinePushPin } from "react-icons/md";
+import { MdOutlinePushPin, MdDescription } from "react-icons/md";
 import { MdCreate, MdDelete, MdDownload } from "react-icons/md";
 import { exportNoteToPDF } from "../../utils/exportUtils";
+import { formatNoteDate } from '../../utils/helper';
 
 const highlight = (text, query) => {
     if (!query || !text) return text;
@@ -23,6 +24,7 @@ const NoteCard = ({
     content,
     tags,
     isPinned,
+    noteMode = 'quick',
     onEdit,
     onDelete,
     onPinNote,
@@ -37,11 +39,15 @@ const NoteCard = ({
         <div className='group border-none shadow-sm rounded-xl p-5 bg-white hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] relative flex flex-col h-full cursor-grab active:cursor-grabbing'>
             <div className='flex items-start justify-between'>
                 <div className='flex flex-col gap-1 pr-6'>
+                    <span className={`inline-flex w-fit items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${noteMode === 'document' ? 'bg-slate-900 text-white' : 'bg-sky-100 text-sky-700'}`}>
+                        {noteMode === 'document' && <MdDescription size={13} />}
+                        {noteMode === 'document' ? 'Document' : 'Quick note'}
+                    </span>
                     <h6
                         className='text-base font-semibold text-slate-800 leading-snug'
                         dangerouslySetInnerHTML={{ __html: highlightedTitle }}
                     />
-                    <span className='text-[11px] font-medium text-slate-400'>{date}</span>
+                    <span className='text-[11px] font-medium text-slate-400'>{formatNoteDate(date)}</span>
                 </div>
 
                 <MdOutlinePushPin className={`icon-btn absolute right-5 top-5 ${isPinned ? 'text-primary' : 'text-slate-300 hover:text-primary'}`} onClick={onPinNote} />

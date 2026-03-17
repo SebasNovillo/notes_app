@@ -2,8 +2,13 @@ const mongoose = require("mongoose");
 
 const noteSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true },
+    title: { type: String, required: true, trim: true },
     content: { type: String, required: true },
+    noteMode: {
+      type: String,
+      enum: ["quick", "document"],
+      default: "quick",
+    },
     tags: { type: [String], default: [] },
     isPinned: { type: Boolean, default: false },
     userId: {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Navbar from '../../components/Navbar/Navbar'
 import NoteCard from '../../components/Cards/NoteCard'
-import { MdAdd } from "react-icons/md"
+import { MdAdd, MdDescription } from "react-icons/md"
 import AddEditNotes from './AddEditNotes'
 import Modal from "react-modal"
 import axiosInstance from '../../utils/axiosInstance';
@@ -28,7 +28,45 @@ const Home = () => {
   const navigate = useNavigate();
 
   const handleEdit = (noteDetails) => {
+    if (noteDetails.noteMode === "document") {
+      navigate(`/documents/${noteDetails._id}`);
+      return;
+    }
+
     setOpenAddEditModal({ isShown: true, data: noteDetails, type: "edit" });
+  };
+
+  const openQuickNote = () => {
+    setOpenAddEditModal({ isShown: true, type: "add", data: { folderId: selectedFolderId, noteMode: "quick" } });
+  };
+
+  const openNewDocument = () => {
+    navigate('/documents/new', {
+      state: {
+        draft: {
+          folderId: selectedFolderId,
+          noteMode: "document",
+        },
+      },
+    });
+  };
+
+  const handleOpenAsDocument = (draft) => {
+    setOpenAddEditModal({ isShown: false, type: "add", data: null });
+
+    if (draft?._id) {
+      navigate(`/documents/${draft._id}`);
+      return;
+    }
+
+    navigate('/documents/new', {
+      state: {
+        draft: {
+          ...draft,
+          noteMode: "document",
+        },
+      },
+    });
   };
 
   const [draggedNoteId, setDraggedNoteId] = useState(null);
@@ -291,6 +329,8 @@ const Home = () => {
 
   const pinnedNotes = filteredNotes.filter(note => note.isPinned);
   const otherNotes = filteredNotes.filter(note => !note.isPinned);
+  const documentNotesCount = filteredNotes.filter(note => note.noteMode === 'document').length;
+  const quickNotesCount = filteredNotes.length - documentNotesCount;
 
   useEffect(() => {
     getAllNotes();
@@ -329,6 +369,52 @@ const Home = () => {
 
         {/* Main Content Area */}
         <div className='flex-1 w-full max-w-full overflow-hidden px-4 md:px-8 mt-4 md:mt-8 mb-24'>
+          <section className='rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#f9fbff_0%,#ffffff_48%,#fff9ef_100%)] p-6 md:p-8 shadow-sm mb-8'>
+            <div className='flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6'>
+              <div className='max-w-2xl'>
+                <p className='text-xs font-bold uppercase tracking-[0.24em] text-slate-400'>Smart Notes Workspace</p>
+                <h1 className='text-3xl md:text-4xl font-bold text-slate-950 mt-3'>Capture fast, then go deep when the idea grows.</h1>
+                <p className='text-sm md:text-base text-slate-600 mt-3 leading-relaxed'>
+                  Keep quick notes in a popup for speed, and open full-page documents when you need room to think, structure and refine.
+                </p>
+              </div>
+
+              <div className='flex flex-col sm:flex-row gap-3'>
+                <button
+                  className='rounded-2xl bg-primary text-white px-5 py-3 text-sm font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2'
+                  onClick={openQuickNote}
+                >
+                  <MdAdd className='text-lg' /> Quick note
+                </button>
+                <button
+                  className='rounded-2xl bg-slate-900 text-white px-5 py-3 text-sm font-semibold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2'
+                  onClick={openNewDocument}
+                >
+                  <MdDescription className='text-lg' /> New document
+                </button>
+              </div>
+            </div>
+
+            <div className='grid grid-cols-2 md:grid-cols-4 gap-3 mt-8'>
+              <div className='rounded-2xl bg-white/80 border border-white p-4'>
+                <p className='text-xs uppercase tracking-[0.2em] text-slate-400 font-bold'>All Notes</p>
+                <p className='text-3xl font-bold text-slate-900 mt-3'>{filteredNotes.length}</p>
+              </div>
+              <div className='rounded-2xl bg-white/80 border border-white p-4'>
+                <p className='text-xs uppercase tracking-[0.2em] text-slate-400 font-bold'>Quick Notes</p>
+                <p className='text-3xl font-bold text-slate-900 mt-3'>{quickNotesCount}</p>
+              </div>
+              <div className='rounded-2xl bg-white/80 border border-white p-4'>
+                <p className='text-xs uppercase tracking-[0.2em] text-slate-400 font-bold'>Documents</p>
+                <p className='text-3xl font-bold text-slate-900 mt-3'>{documentNotesCount}</p>
+              </div>
+              <div className='rounded-2xl bg-white/80 border border-white p-4'>
+                <p className='text-xs uppercase tracking-[0.2em] text-slate-400 font-bold'>Pinned</p>
+                <p className='text-3xl font-bold text-slate-900 mt-3'>{pinnedNotes.length}</p>
+              </div>
+            </div>
+          </section>
+
           <div className='w-full'>
 
           {pinnedNotes.length > 0 && (
@@ -370,6 +456,7 @@ const Home = () => {
                       content={item.content}
                       tags={item.tags}
                       isPinned={item.isPinned}
+                      noteMode={item.noteMode}
                       onEdit={() => handleEdit(item)}
                       onDelete={() => deleteNote(item)}
                       onPinNote={() => updateIsPinned(item)}
@@ -416,12 +503,13 @@ const Home = () => {
                  }}
                >
                  <NoteCard
-                   title={item.title}
-                   date={item.createdAt}
-                   content={item.content}
-                   tags={item.tags}
-                   isPinned={item.isPinned}
-                   onEdit={() => handleEdit(item)}
+                    title={item.title}
+                    date={item.createdAt}
+                    content={item.content}
+                    tags={item.tags}
+                    isPinned={item.isPinned}
+                    noteMode={item.noteMode}
+                    onEdit={() => handleEdit(item)}
                    onDelete={() => deleteNote(item)}
                    onPinNote={() => updateIsPinned(item)}
                    onTagClick={handleTagClick}
@@ -441,14 +529,22 @@ const Home = () => {
         </div>
       </div>
 
-      <button
-        className='w-16 h-16 flex items-center justify-center rounded-2xl bg-primary hover:bg-blue-600 absolute right-10 bottom-10'
-        onClick={() => {
-          setOpenAddEditModal({ isShown: true, type: "add", data: { folderId: selectedFolderId } });
-        }}
-      >
-        <MdAdd className="text-[32px] text-white" />
-      </button>
+      <div className='fixed right-6 bottom-6 md:right-10 md:bottom-10 flex flex-col gap-3 z-40'>
+        <button
+          className='min-w-[168px] h-14 px-5 flex items-center justify-center gap-2 rounded-2xl bg-slate-900 hover:bg-slate-800 shadow-lg text-white font-semibold'
+          onClick={openNewDocument}
+        >
+          <MdDescription className="text-[22px]" />
+          New document
+        </button>
+        <button
+          className='min-w-[168px] h-14 px-5 flex items-center justify-center gap-2 rounded-2xl bg-primary hover:bg-blue-600 shadow-lg text-white font-semibold'
+          onClick={openQuickNote}
+        >
+          <MdAdd className="text-[22px]" />
+          Quick note
+        </button>
+      </div>
 
       <Modal
         isOpen={openAddEditModal.isShown}
@@ -465,6 +561,7 @@ const Home = () => {
         <AddEditNotes
           type={openAddEditModal.type}
           noteData={openAddEditModal.data}
+          onOpenAsDocument={handleOpenAsDocument}
           onClose={() => {
             setOpenAddEditModal({ isShown: false, type: "add", data: null })
           }}

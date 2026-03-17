@@ -16,6 +16,7 @@ const PORT = process.env.PORT || 8000;
 const allowedOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean)
     : ["http://localhost:5173"];
+const validNoteModes = new Set(["quick", "document"]);
 
 app.use(express.json());
 app.use(
@@ -215,10 +216,10 @@ app.put("/update-user", authenticateToken, async (req, res) => {
 });
 
 app.post("/add-note", authenticateToken, async (req, res) => {
-    const { title, content, tags, folderId } = req.body;
+    const { title, content, tags, folderId, noteMode = "quick" } = req.body;
     const { userId } = req.user;
 
-    if (!title) {
+    if (!title?.trim()) {
         return res.status(400).json({ error: true, message: "Title is required" });
     }
 
@@ -226,10 +227,15 @@ app.post("/add-note", authenticateToken, async (req, res) => {
         return res.status(400).json({ error: true, message: "Content is required" });
     }
 
+    if (!validNoteModes.has(noteMode)) {
+        return res.status(400).json({ error: true, message: "Invalid note mode" });
+    }
+
     try {
         const note = new Note({
-            title,
+            title: title.trim(),
             content,
+            noteMode,
             tags: tags || [],
             userId,
             folderId: folderId || null,
@@ -252,11 +258,15 @@ app.post("/add-note", authenticateToken, async (req, res) => {
 
 app.put("/edit-note/:noteId", authenticateToken, async (req, res) => {
     const noteId = req.params.noteId;
-    const { title, content, tags, isPinned, folderId } = req.body;
+    const { title, content, tags, isPinned, folderId, noteMode } = req.body;
     const { userId } = req.user;
 
-    if (!title && !content && !tags && isPinned === undefined && folderId === undefined) {
+    if (!title && !content && !tags && isPinned === undefined && folderId === undefined && noteMode === undefined) {
         return res.status(400).json({ error: true, message: "No changes provided" });
+    }
+
+    if (noteMode !== undefined && !validNoteModes.has(noteMode)) {
+        return res.status(400).json({ error: true, message: "Invalid note mode" });
     }
 
     try {
@@ -266,11 +276,12 @@ app.put("/edit-note/:noteId", authenticateToken, async (req, res) => {
             return res.status(404).json({ error: true, message: "Note not found" });
         }
 
-        if (title) note.title = title;
+        if (title?.trim()) note.title = title.trim();
         if (content) note.content = content;
         if (tags) note.tags = tags;
         if (isPinned !== undefined) note.isPinned = isPinned;
         if (folderId !== undefined) note.folderId = folderId || null;
+        if (noteMode !== undefined) note.noteMode = noteMode;
 
         await note.save();
 
@@ -278,6 +289,30 @@ app.put("/edit-note/:noteId", authenticateToken, async (req, res) => {
             error: false,
             note,
             message: "Note updated successfully",
+        });
+    } catch (error) {
+        return res.status(500).json({
+            error: true,
+            message: "Internal Server Error",
+        });
+    }
+});
+
+app.get("/get-note/:noteId", authenticateToken, async (req, res) => {
+    const { noteId } = req.params;
+    const { userId } = req.user;
+
+    try {
+        const note = await Note.findOne({ _id: noteId, userId });
+
+        if (!note) {
+            return res.status(404).json({ error: true, message: "Note not found" });
+        }
+
+        return res.json({
+            error: false,
+            note,
+            message: "Note retrieved successfully",
         });
     } catch (error) {
         return res.status(500).json({

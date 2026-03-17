@@ -6,7 +6,7 @@ export const validateEmail = (email) => {
 export const getInitials = (name) => {
     if (!name) return "";
 
-    const words = name.split(" ");
+    const words = name.split(" ").filter(Boolean);
     let initials = "";
 
     for (let i = 0; i < Math.min(words.length, 2); i++) {
@@ -14,4 +14,14 @@ export const getInitials = (name) => {
     }
 
     return initials.toUpperCase();
+};
+
+export const formatNoteDate = (value) => {
+    if (!value) return "No date";
+
+    return new Date(value).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
 };
