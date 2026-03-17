@@ -199,56 +199,63 @@ const AddEditNotes = ({
     const containerClassName = editorVariant === 'document'
         ? 'w-full'
         : 'relative';
+    const isDocumentEditor = editorVariant === 'document';
 
     return (
         <div className={containerClassName}>
-            {!hideCloseButton && (
-                <button
-                    type="button"
-                    className='w-10 h-10 rounded-full flex items-center justify-center absolute -top-3 -right-3 hover:bg-slate-50'
-                    onClick={onClose}
-                >
-                    <MdClose className='text-xl text-slate-400' />
-                </button>
-            )}
-
-            <div className={`rounded-2xl border p-4 mb-6 ${noteMode === 'document' ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
-                <p className={`text-[10px] font-bold uppercase tracking-[0.22em] ${noteMode === 'document' ? 'text-slate-300' : 'text-slate-400'}`}>
-                    Workspace Mode
-                </p>
-                <div className='flex items-start justify-between gap-4 mt-2'>
+            {!isDocumentEditor && (
+                <div className='flex items-center justify-between gap-3 pb-4 mb-6 border-b border-slate-100'>
                     <div>
-                        <p className='text-lg font-semibold'>{modeMeta.label}</p>
-                        <p className={`text-sm mt-1 ${noteMode === 'document' ? 'text-slate-300' : 'text-slate-600'}`}>
-                            {modeMeta.description}
-                        </p>
+                        <p className='text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400'>Quick Capture</p>
+                        <p className='text-sm font-semibold text-slate-900 mt-1'>{modeMeta.label}</p>
                     </div>
 
-                    {noteMode === 'quick' && onOpenAsDocument && (
-                        <button
-                            type="button"
-                            onClick={() => onOpenAsDocument({
-                                title,
-                                content: editor?.getHTML() || noteData?.content || "",
-                                tags,
-                                folderId: noteData?.folderId || null,
-                                _id: noteData?._id,
-                            })}
-                            className='inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300'
-                        >
-                            <MdOpenInFull />
-                            Continue as document
-                        </button>
-                    )}
+                    <div className='flex items-center gap-2'>
+                        {noteMode === 'quick' && onOpenAsDocument && (
+                            <button
+                                type="button"
+                                onClick={() => onOpenAsDocument({
+                                    title,
+                                    content: editor?.getHTML() || noteData?.content || "",
+                                    tags,
+                                    folderId: noteData?.folderId || null,
+                                    _id: noteData?._id,
+                                })}
+                                className='inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300'
+                            >
+                                <MdOpenInFull />
+                                Continue as document
+                            </button>
+                        )}
+
+                        {!hideCloseButton && (
+                            <button
+                                type="button"
+                                className='w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors'
+                                onClick={onClose}
+                            >
+                                <MdClose className='text-xl' />
+                            </button>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {isDocumentEditor && (
+                <div className='mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500'>
+                    <span className='inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white'>
+                        {modeMeta.label}
+                    </span>
+                    <span>{modeMeta.description}</span>
+                </div>
+            )}
 
             <div className='flex flex-col gap-2 mb-4'>
                 <label className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>TITLE</label>
                 <input
                     type='text'
-                    className={`outline-none transition-all pb-2 placeholder:text-slate-200 ${editorVariant === 'document'
-                        ? 'text-5xl font-bold text-slate-950 border-b border-slate-100 focus:border-slate-300'
+                    className={`outline-none transition-all pb-2 placeholder:text-slate-200 ${isDocumentEditor
+                        ? 'text-6xl font-bold text-slate-950 border-b border-slate-200 focus:border-slate-400 bg-transparent'
                         : 'text-4xl font-semibold text-slate-950 border-b border-white hover:border-slate-100 focus:border-slate-200'
                         }`}
                     placeholder={noteMode === 'document' ? 'Untitled document' : 'Untitled note'}
@@ -259,29 +266,29 @@ const AddEditNotes = ({
 
             <div className='flex flex-col gap-2 mt-4'>
                 <label className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>CONTENT</label>
-                <div className="document-host">
+                <div className={`document-host ${isDocumentEditor ? 'bg-transparent border-none rounded-none overflow-visible' : ''}`}>
                     <Toolbar editor={editor} />
-                    <div className={`document-page ${editorVariant === 'document' ? 'min-h-[72vh]' : ''}`}>
+                    <div className={`document-page ${isDocumentEditor ? 'min-h-[78vh] max-w-4xl shadow-none border border-slate-200 rounded-[28px] px-10 md:px-16 py-14 mt-6 bg-white' : ''}`}>
                         <EditorContent editor={editor} className="tiptap-editor" />
                     </div>
                 </div>
             </div>
 
-            <div className='mt-8 pt-4 border-t border-slate-50'>
+            <div className={`mt-8 pt-4 ${isDocumentEditor ? 'border-t border-slate-100' : 'border-t border-slate-50'}`}>
                 <label className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>TAGS</label>
                 <TagInput tags={tags} setTags={setTags} />
             </div>
 
             {error && <p className='text-red-500 text-xs pt-4'>{error}</p>}
 
-            <div className='flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mt-6'>
+            <div className={`flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mt-6 ${isDocumentEditor ? 'pt-2' : ''}`}>
                 {editorVariant === 'document' ? (
-                    <p className='text-sm text-slate-500'>Documents give you more space for long-form thinking and structured writing.</p>
+                    <p className='text-sm text-slate-500'>Long-form writing, richer structure, same notes system.</p>
                 ) : (
                     <p className='text-sm text-slate-500'>Quick notes stay lightweight so you can capture ideas without friction.</p>
                 )}
 
-                <button className='btn-primary font-medium p-3 uppercase tracking-widest' onClick={handleSave}>
+                <button className={`font-medium p-3 uppercase tracking-widest ${isDocumentEditor ? 'rounded-full bg-slate-900 text-white hover:bg-slate-800 px-6' : 'btn-primary'}`} onClick={handleSave}>
                     {type === 'edit' ? 'Update Note' : noteMode === 'document' ? 'Create Document' : 'Add Note'}
                 </button>
             </div>

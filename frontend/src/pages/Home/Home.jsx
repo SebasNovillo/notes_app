@@ -369,48 +369,20 @@ const Home = () => {
 
         {/* Main Content Area */}
         <div className='flex-1 w-full max-w-full overflow-hidden px-4 md:px-8 mt-4 md:mt-8 mb-24'>
-          <section className='rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#f9fbff_0%,#ffffff_48%,#fff9ef_100%)] p-6 md:p-8 shadow-sm mb-8'>
-            <div className='flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6'>
-              <div className='max-w-2xl'>
+          <section className='rounded-2xl border border-slate-200 bg-white px-5 md:px-6 py-4 shadow-sm mb-8'>
+            <div className='flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4'>
+              <div>
                 <p className='text-xs font-bold uppercase tracking-[0.24em] text-slate-400'>Smart Notes Workspace</p>
-                <h1 className='text-3xl md:text-4xl font-bold text-slate-950 mt-3'>Capture fast, then go deep when the idea grows.</h1>
-                <p className='text-sm md:text-base text-slate-600 mt-3 leading-relaxed'>
-                  Keep quick notes in a popup for speed, and open full-page documents when you need room to think, structure and refine.
+                <p className='text-sm md:text-base text-slate-600 mt-2'>
+                  Quick capture for fast ideas, documents for deeper writing.
                 </p>
               </div>
 
-              <div className='flex flex-col sm:flex-row gap-3'>
-                <button
-                  className='rounded-2xl bg-primary text-white px-5 py-3 text-sm font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2'
-                  onClick={openQuickNote}
-                >
-                  <MdAdd className='text-lg' /> Quick note
-                </button>
-                <button
-                  className='rounded-2xl bg-slate-900 text-white px-5 py-3 text-sm font-semibold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2'
-                  onClick={openNewDocument}
-                >
-                  <MdDescription className='text-lg' /> New document
-                </button>
-              </div>
-            </div>
-
-            <div className='grid grid-cols-2 md:grid-cols-4 gap-3 mt-8'>
-              <div className='rounded-2xl bg-white/80 border border-white p-4'>
-                <p className='text-xs uppercase tracking-[0.2em] text-slate-400 font-bold'>All Notes</p>
-                <p className='text-3xl font-bold text-slate-900 mt-3'>{filteredNotes.length}</p>
-              </div>
-              <div className='rounded-2xl bg-white/80 border border-white p-4'>
-                <p className='text-xs uppercase tracking-[0.2em] text-slate-400 font-bold'>Quick Notes</p>
-                <p className='text-3xl font-bold text-slate-900 mt-3'>{quickNotesCount}</p>
-              </div>
-              <div className='rounded-2xl bg-white/80 border border-white p-4'>
-                <p className='text-xs uppercase tracking-[0.2em] text-slate-400 font-bold'>Documents</p>
-                <p className='text-3xl font-bold text-slate-900 mt-3'>{documentNotesCount}</p>
-              </div>
-              <div className='rounded-2xl bg-white/80 border border-white p-4'>
-                <p className='text-xs uppercase tracking-[0.2em] text-slate-400 font-bold'>Pinned</p>
-                <p className='text-3xl font-bold text-slate-900 mt-3'>{pinnedNotes.length}</p>
+              <div className='flex flex-wrap gap-2'>
+                <span className='rounded-full bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700'>All {filteredNotes.length}</span>
+                <span className='rounded-full bg-sky-100 px-3 py-1.5 text-sm font-semibold text-sky-700'>Quick {quickNotesCount}</span>
+                <span className='rounded-full bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white'>Documents {documentNotesCount}</span>
+                <span className='rounded-full bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-700'>Pinned {pinnedNotes.length}</span>
               </div>
             </div>
           </section>
@@ -556,7 +528,7 @@ const Home = () => {
           },
         }}
         contentLabel=""
-        className="w-[70%] max-h-[85vh] bg-white rounded-xl mx-auto mt-10 p-12 overflow-auto shadow-2xl outline-none border-none"
+        className="w-[92%] lg:w-[72%] max-h-[88vh] bg-white rounded-[28px] mx-auto mt-8 p-6 md:p-8 overflow-auto shadow-2xl outline-none border-none"
       >
         <AddEditNotes
           type={openAddEditModal.type}
