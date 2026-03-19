@@ -90,6 +90,126 @@
     @apply flex items-center gap-1 flex-wrap px-4 py-2 border-b border-slate-100 sticky top-0 bg-white z-10;
   }
 
+  .document-toolbar {
+    @apply sticky top-[73px] z-20 border-b border-slate-200 bg-white shadow-sm;
+  }
+
+  .document-toolbar--minimal {
+    @apply px-4 md:px-6 py-3 gap-0 shadow-none;
+  }
+
+  .toolbar-main-row {
+    @apply flex items-center gap-1.5 flex-wrap w-full;
+  }
+
+  .document-tabbar {
+    @apply flex items-end gap-1 px-4 md:px-6 pt-3 bg-white border-b border-slate-200 overflow-x-auto;
+  }
+
+  .document-tab-btn {
+    @apply text-sm font-medium text-slate-500 px-3 py-2 rounded-t-lg border border-transparent border-b-0 hover:text-slate-800 transition-colors whitespace-nowrap;
+  }
+
+  .document-tab-btn.is-active {
+    @apply bg-slate-50 text-slate-950 border-slate-200;
+  }
+
+  .document-tabbar-status {
+    @apply ml-auto hidden lg:flex items-center text-xs font-semibold uppercase tracking-[0.22em] text-slate-400 whitespace-nowrap pb-2;
+  }
+
+  .document-ribbon {
+    @apply flex flex-wrap items-stretch gap-3 px-4 md:px-6 py-3 bg-white;
+  }
+
+  .document-ribbon-group {
+    @apply flex flex-col justify-between gap-3 min-h-[104px] px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/70;
+  }
+
+  .document-ribbon-group-content {
+    @apply flex-1 flex items-center;
+  }
+
+  .document-ribbon-group-title {
+    @apply text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400;
+  }
+
+  .toolbar-btn--compact {
+    @apply p-1.5;
+  }
+
+  .toolbar-stack-row {
+    @apply flex items-center gap-2 flex-wrap;
+  }
+
+  .toolbar-stack-col {
+    @apply flex flex-col gap-2;
+  }
+
+  .toolbar-segment {
+    @apply flex items-center rounded-xl border border-slate-200 bg-white p-1;
+  }
+
+  .toolbar-segment-btn {
+    @apply rounded-lg px-3 py-2 text-sm text-slate-600 transition-colors whitespace-nowrap;
+  }
+
+  .toolbar-segment-btn.is-active {
+    @apply bg-slate-900 text-white;
+  }
+
+  .toolbar-color-row {
+    @apply flex items-center gap-2;
+  }
+
+  .toolbar-color-input {
+    @apply inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-600;
+  }
+
+  .toolbar-color-input input {
+    @apply w-8 h-8 cursor-pointer bg-transparent border-none p-0;
+  }
+
+  .toolbar-color-input--compact {
+    @apply px-2 py-1.5;
+  }
+
+  .toolbar-clear-btn {
+    @apply inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:border-slate-300;
+  }
+
+  .toolbar-clear-btn--compact {
+    @apply px-2 py-1.5;
+  }
+
+  .toolbar-swatch-row {
+    @apply flex items-center gap-2 flex-wrap;
+  }
+
+  .toolbar-swatch {
+    @apply w-6 h-6 rounded-full border-2 border-white shadow-sm transition-transform;
+  }
+
+  .toolbar-swatch.is-active {
+    @apply ring-2 ring-slate-900 scale-110;
+  }
+
+  .toolbar-metric-grid {
+    @apply flex items-center gap-2 flex-wrap;
+  }
+
+  .toolbar-metric-card {
+    @apply flex flex-col items-start rounded-lg border border-slate-200 bg-white px-3 py-2 min-w-[96px] hover:border-slate-300 transition-colors;
+  }
+
+  .toolbar-metric-value {
+    @apply text-lg font-semibold text-slate-950;
+  }
+
+  .toolbar-metric-label {
+    @apply text-xs uppercase tracking-[0.16em] text-slate-400;
+  }
+
   .toolbar-btn {
     @apply p-2 rounded-md hover:bg-slate-100 text-slate-600 transition-all flex items-center justify-center;
   }
@@ -111,6 +231,10 @@
     @apply bg-slate-50 rounded-xl border border-slate-100 overflow-hidden;
   }
 
+  .document-shell {
+    @apply rounded-none border-y border-slate-200 border-x-0 bg-white shadow-none overflow-visible;
+  }
+
   .document-page {
     background: #ffffff;
     width: 100%;
@@ -120,6 +244,106 @@
     padding: 60px 72px;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 4px 24px 0 rgba(0, 0, 0, 0.06);
     border-radius: 4px;
+  }
+
+  .document-page--workspace {
+    --workspace-editor-max: calc(100vw - 8px);
+    --document-sheet-max: min(1680px, calc(100vw - 12px));
+    background: linear-gradient(180deg, #edf2f8 0%, #e8eef7 100%);
+    max-width: none;
+    min-height: calc(100vh - 220px);
+    margin: 0;
+    padding: 6px 0 24px;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .document-page--workspace .tiptap-editor {
+    width: 100%;
+    max-width: var(--workspace-editor-max);
+    margin: 0 auto;
+  }
+
+  .document-page--workspace .ProseMirror {
+    width: 100%;
+    min-height: calc(100vh - 320px);
+    max-width: var(--document-sheet-max);
+    margin: 0 auto;
+    background: white;
+    padding: 88px clamp(28px, 4vw, 92px) 110px;
+    border: 1px solid #d9e2f0;
+    border-radius: 2px;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+    font-size: 1rem;
+    line-height: 1.8;
+  }
+
+  .document-page--workspace.is-comfort {
+    --workspace-editor-max: min(1120px, calc(100vw - 12px));
+    --document-sheet-max: min(980px, calc(100vw - 60px));
+  }
+
+  .document-page--workspace.is-wide {
+    --workspace-editor-max: min(1540px, calc(100vw - 10px));
+    --document-sheet-max: min(1320px, calc(100vw - 28px));
+  }
+
+  .document-page--workspace.is-full {
+    --workspace-editor-max: calc(100vw - 4px);
+    --document-sheet-max: min(1680px, calc(100vw - 12px));
+  }
+
+  .document-page--workspace .ProseMirror h1 {
+    @apply text-4xl font-bold mb-5;
+  }
+
+  .document-page--workspace .ProseMirror h2 {
+    @apply text-3xl font-bold mb-4;
+  }
+
+  .document-page--workspace .ProseMirror h3 {
+    @apply text-2xl font-bold mb-3;
+  }
+
+  .document-status-message {
+    @apply mt-3 px-4 md:px-6 text-sm text-slate-500;
+  }
+
+  @media (max-width: 767px) {
+    .document-toolbar {
+      @apply top-[69px];
+    }
+
+    .document-toolbar--minimal {
+      @apply px-2 py-2;
+    }
+
+    .document-tabbar-status {
+      @apply hidden;
+    }
+
+    .document-tabbar {
+      @apply px-2 pt-2;
+    }
+
+    .document-ribbon {
+      @apply px-2 py-2 gap-2;
+    }
+
+    .document-ribbon-group {
+      @apply min-h-0 w-full;
+    }
+
+    .document-page--workspace {
+      --workspace-editor-max: calc(100vw - 2px);
+      --document-sheet-max: calc(100vw - 2px);
+      padding: 6px 0 24px;
+    }
+
+    .document-page--workspace .ProseMirror {
+      min-height: calc(100vh - 280px);
+      padding: 28px 18px 40px;
+    }
   }
 
   /* Search highlight */

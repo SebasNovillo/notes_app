@@ -2,115 +2,276 @@ import React, { useEffect, useMemo, useState } from 'react'
 import TagInput from '../../components/Input/TagInput'
 import {
     MdClose,
+    MdUndo,
+    MdRedo,
     MdFormatBold,
     MdFormatItalic,
+    MdFormatUnderlined,
     MdFormatListBulleted,
     MdFormatListNumbered,
-    MdCode,
-    MdFormatQuote,
+    MdLink,
     MdOpenInFull,
+    MdSave,
+    MdDownload,
+    MdPrint,
+    MdFormatColorText,
+    MdClear,
 } from 'react-icons/md';
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import Underline from '@tiptap/extension-underline'
+import Link from '@tiptap/extension-link'
 import { TextStyle, FontSize } from '@tiptap/extension-text-style'
+import { Color } from '@tiptap/extension-text-style/color'
 
 import axiosInstance from '../../utils/axiosInstance';
 import { NOTE_MODE_META } from '../../utils/constants';
+import { exportNoteToPDF, printNoteContent } from '../../utils/exportUtils';
 
 const FONT_SIZES = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px', '36px', '48px'];
+const TEXT_STYLE_OPTIONS = [
+    { value: 'paragraph', label: 'Normal text' },
+    { value: 'h1', label: 'Heading 1' },
+    { value: 'h2', label: 'Heading 2' },
+    { value: 'h3', label: 'Heading 3' },
+    { value: 'quote', label: 'Quote' },
+    { value: 'code', label: 'Code block' },
+];
+const TEXT_COLORS = ['#0f172a', '#2563eb', '#dc2626', '#16a34a', '#9333ea', '#d97706', '#64748b'];
+const DEFAULT_TEXT_COLOR = '#0f172a';
 
-const Toolbar = ({ editor }) => {
+const normalizeColorValue = (value) => {
+    if (typeof value !== 'string') return DEFAULT_TEXT_COLOR;
+    return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value) ? value : DEFAULT_TEXT_COLOR;
+};
+
+const RibbonButton = ({ onClick, active = false, title, children, compact = false }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        title={title}
+        className={`toolbar-btn ${active ? 'is-active' : ''} ${compact ? 'toolbar-btn--compact' : ''}`}
+    >
+        {children}
+    </button>
+);
+
+const Toolbar = ({
+    editor,
+    variant = 'quick',
+    onSave,
+    title,
+    onStatusChange,
+}) => {
+    const isDocumentToolbar = variant === 'document';
     if (!editor) return null;
 
     const currentFontSize = editor.getAttributes('textStyle').fontSize || '16px';
+    const currentTextColor = normalizeColorValue(editor.getAttributes('textStyle').color);
+    const currentTextStyle = editor.isActive('heading', { level: 1 })
+        ? 'h1'
+        : editor.isActive('heading', { level: 2 })
+            ? 'h2'
+            : editor.isActive('heading', { level: 3 })
+                ? 'h3'
+                : editor.isActive('blockquote')
+                    ? 'quote'
+                    : editor.isActive('codeBlock')
+                        ? 'code'
+                        : 'paragraph';
+
+    const applyTextStyle = (value) => {
+        const chain = editor.chain().focus();
+
+        if (value === 'paragraph') {
+            chain.setParagraph().run();
+            return;
+        }
+
+        if (value === 'quote') {
+            chain.toggleBlockquote().run();
+            return;
+        }
+
+        if (value === 'code') {
+            chain.toggleCodeBlock().run();
+            return;
+        }
+
+        chain.toggleHeading({ level: Number(value.replace('h', '')) }).run();
+    };
+
+    const handleSetLink = () => {
+        const previousUrl = editor.getAttributes('link').href || '';
+        const url = window.prompt('Paste a URL', previousUrl);
+
+        if (url === null) return;
+
+        if (url.trim() === '') {
+            editor.chain().focus().unsetLink().run();
+            return;
+        }
+
+        editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run();
+    };
+
+    const reportStatus = (message) => {
+        onStatusChange?.(message);
+    };
+
+    const copyToClipboard = async (value, successMessage) => {
+        try {
+            await navigator.clipboard.writeText(value);
+            reportStatus(successMessage);
+        } catch {
+            reportStatus('Clipboard is not available in this browser.');
+        }
+    };
+
+    const handleSaveDocument = async () => {
+        const saved = await onSave?.();
+        if (saved) {
+            reportStatus('Document saved.');
+        }
+    };
+
+    const setTextColor = (color) => {
+        editor.chain().focus().setColor(color).run();
+        reportStatus('Text color updated.');
+    };
+
+    const clearTextColor = () => {
+        editor.chain().focus().unsetColor().run();
+        reportStatus('Text color cleared.');
+    };
 
     return (
-        <div className="tiptap-toolbar">
-            <button
-                type="button"
-                onClick={() => editor.chain().focus().toggleBold().run()}
-                className={`toolbar-btn ${editor.isActive('bold') ? 'is-active' : ''}`}
-                title="Bold"
-            >
-                <MdFormatBold size={20} />
-            </button>
-            <button
-                type="button"
-                onClick={() => editor.chain().focus().toggleItalic().run()}
-                className={`toolbar-btn ${editor.isActive('italic') ? 'is-active' : ''}`}
-                title="Italic"
-            >
-                <MdFormatItalic size={20} />
-            </button>
+        <div className={`tiptap-toolbar ${isDocumentToolbar ? 'document-toolbar document-toolbar--minimal' : ''}`}>
+            <div className='toolbar-main-row'>
+                {isDocumentToolbar && (
+                    <>
+                        <RibbonButton onClick={() => void handleSaveDocument()} title="Save">
+                            <MdSave size={18} />
+                        </RibbonButton>
+                        <div className="toolbar-divider" />
+                    </>
+                )}
 
-            <select
-                value={currentFontSize}
-                onChange={(e) => {
-                    if (e.target.value === 'default') {
-                        editor.chain().focus().unsetFontSize().run();
-                    } else {
-                        editor.chain().focus().setFontSize(e.target.value).run();
-                    }
-                }}
-                className="toolbar-select"
-                title="Font Size"
-            >
-                <option value="default">Size</option>
-                {FONT_SIZES.map(size => (
-                    <option key={size} value={size}>{size.replace('px', '')}</option>
+                <RibbonButton onClick={() => editor.chain().focus().undo().run()} title="Undo" compact>
+                    <MdUndo size={18} />
+                </RibbonButton>
+                <RibbonButton onClick={() => editor.chain().focus().redo().run()} title="Redo" compact>
+                    <MdRedo size={18} />
+                </RibbonButton>
+
+                <div className="toolbar-divider" />
+
+                <select
+                    value={currentTextStyle}
+                    onChange={(e) => applyTextStyle(e.target.value)}
+                    className='toolbar-select'
+                    title="Text Style"
+                >
+                    {TEXT_STYLE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                </select>
+
+                <select
+                    value={currentFontSize}
+                    onChange={(e) => {
+                        if (e.target.value === 'default') {
+                            editor.chain().focus().unsetFontSize().run();
+                        } else {
+                            editor.chain().focus().setFontSize(e.target.value).run();
+                        }
+                    }}
+                    className="toolbar-select"
+                    title="Font Size"
+                >
+                    <option value="default">Size</option>
+                    {FONT_SIZES.map(size => (
+                        <option key={size} value={size}>{size.replace('px', '')}</option>
+                    ))}
+                </select>
+
+                <label className='toolbar-color-input toolbar-color-input--compact'>
+                    <MdFormatColorText size={16} />
+                    <input
+                        type="color"
+                        value={currentTextColor}
+                        onChange={(e) => setTextColor(e.target.value)}
+                        aria-label="Text color"
+                    />
+                </label>
+
+                <button type="button" className='toolbar-clear-btn toolbar-clear-btn--compact' onClick={clearTextColor}>
+                    <MdClear size={14} />
+                </button>
+
+                <div className="toolbar-divider" />
+
+                {TEXT_COLORS.slice(0, 5).map((color) => (
+                    <button
+                        key={color}
+                        type="button"
+                        className={`toolbar-swatch ${currentTextColor === color ? 'is-active' : ''}`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => setTextColor(color)}
+                        title={color}
+                    />
                 ))}
-            </select>
 
-            <div className="toolbar-divider" />
+                <div className="toolbar-divider" />
 
-            <button
-                type="button"
-                onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                className={`toolbar-btn ${editor.isActive('heading', { level: 1 }) ? 'is-active' : ''}`}
-                title="H1"
-            >
-                <span className="font-bold text-sm">H1</span>
-            </button>
-            <button
-                type="button"
-                onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                className={`toolbar-btn ${editor.isActive('heading', { level: 2 }) ? 'is-active' : ''}`}
-                title="H2"
-            >
-                <span className="font-bold text-sm">H2</span>
-            </button>
-            <button
-                type="button"
-                onClick={() => editor.chain().focus().toggleBulletList().run()}
-                className={`toolbar-btn ${editor.isActive('bulletList') ? 'is-active' : ''}`}
-                title="Bullet List"
-            >
-                <MdFormatListBulleted size={20} />
-            </button>
-            <button
-                type="button"
-                onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                className={`toolbar-btn ${editor.isActive('orderedList') ? 'is-active' : ''}`}
-                title="Ordered List"
-            >
-                <MdFormatListNumbered size={20} />
-            </button>
-            <button
-                type="button"
-                onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                className={`toolbar-btn ${editor.isActive('blockquote') ? 'is-active' : ''}`}
-                title="Quote"
-            >
-                <MdFormatQuote size={20} />
-            </button>
-            <button
-                type="button"
-                onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-                className={`toolbar-btn ${editor.isActive('codeBlock') ? 'is-active' : ''}`}
-                title="Code Block"
-            >
-                <MdCode size={20} />
-            </button>
+                <RibbonButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Bold" compact>
+                    <MdFormatBold size={18} />
+                </RibbonButton>
+                <RibbonButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} title="Italic" compact>
+                    <MdFormatItalic size={18} />
+                </RibbonButton>
+                <RibbonButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')} title="Underline" compact>
+                    <MdFormatUnderlined size={18} />
+                </RibbonButton>
+
+                <div className="toolbar-divider" />
+
+                <RibbonButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Bullet list" compact>
+                    <MdFormatListBulleted size={18} />
+                </RibbonButton>
+                <RibbonButton onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Numbered list" compact>
+                    <MdFormatListNumbered size={18} />
+                </RibbonButton>
+                <RibbonButton onClick={handleSetLink} active={editor.isActive('link')} title="Add link" compact>
+                    <MdLink size={18} />
+                </RibbonButton>
+
+                {isDocumentToolbar && (
+                    <>
+                        <div className="toolbar-divider" />
+                        <RibbonButton
+                            onClick={() => {
+                                exportNoteToPDF(title || 'Untitled document', editor.getHTML());
+                                reportStatus('PDF download started.');
+                            }}
+                            title="Download PDF"
+                            compact
+                        >
+                            <MdDownload size={18} />
+                        </RibbonButton>
+                        <RibbonButton
+                            onClick={() => {
+                                const opened = printNoteContent(title || 'Untitled document', editor.getHTML());
+                                reportStatus(opened ? 'Print dialog opened.' : 'Allow pop-ups to print this document.');
+                            }}
+                            title="Print"
+                            compact
+                        >
+                            <MdPrint size={18} />
+                        </RibbonButton>
+                    </>
+                )}
+            </div>
         </div>
     );
 };
@@ -124,16 +285,34 @@ const AddEditNotes = ({
     onSaveSuccess,
     onOpenAsDocument,
     hideCloseButton = false,
+    externalTitle,
+    onTitleChange,
+    hideTitleField = false,
 }) => {
     const [title, setTitle] = useState(noteData?.title || "");
     const [tags, setTags] = useState(noteData?.tags || []);
     const [error, setError] = useState(null);
+    const [statusMessage, setStatusMessage] = useState('');
 
     const noteMode = editorVariant === 'document' ? 'document' : (noteData?.noteMode || 'quick');
     const modeMeta = useMemo(() => NOTE_MODE_META[noteMode] || NOTE_MODE_META.quick, [noteMode]);
+    const isDocumentEditor = editorVariant === 'document';
+    const currentTitle = externalTitle !== undefined ? externalTitle : title;
+    const containerClassName = isDocumentEditor ? 'w-full' : 'relative';
 
     const editor = useEditor({
-        extensions: [StarterKit, TextStyle, FontSize],
+        extensions: [
+            StarterKit,
+            TextStyle,
+            FontSize,
+            Color,
+            Underline,
+            Link.configure({
+                openOnClick: false,
+                autolink: true,
+                defaultProtocol: 'https',
+            }),
+        ],
         content: noteData?.content || "",
     });
 
@@ -147,9 +326,19 @@ const AddEditNotes = ({
         }
     }, [noteData, editor]);
 
+    useEffect(() => {
+        if (!statusMessage) return undefined;
+
+        const timeoutId = window.setTimeout(() => {
+            setStatusMessage('');
+        }, 2600);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [statusMessage]);
+
     const persistNote = async () => {
         const payload = {
-            title,
+            title: currentTitle,
             content: editor?.getHTML() || "",
             tags,
             folderId: noteData?.folderId || null,
@@ -164,14 +353,14 @@ const AddEditNotes = ({
     };
 
     const handleSave = async () => {
-        if (!title.trim()) {
+        if (!currentTitle?.trim()) {
             setError("Please enter the title");
-            return;
+            return false;
         }
 
         if (!editor || editor.isEmpty) {
             setError("Please enter the content");
-            return;
+            return false;
         }
 
         setError("");
@@ -186,6 +375,8 @@ const AddEditNotes = ({
                 } else {
                     onClose?.();
                 }
+
+                return true;
             }
         } catch (apiError) {
             if (apiError.response?.data?.message) {
@@ -194,12 +385,28 @@ const AddEditNotes = ({
                 setError("Unexpected error while saving the note");
             }
         }
+
+        return false;
     };
 
-    const containerClassName = editorVariant === 'document'
-        ? 'w-full'
-        : 'relative';
-    const isDocumentEditor = editorVariant === 'document';
+    useEffect(() => {
+        if (!isDocumentEditor) return undefined;
+
+        const handleKeyDown = (event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+                event.preventDefault();
+                void handleSave();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isDocumentEditor, handleSave]);
+
+    const handleTitleInputChange = (value) => {
+        setTitle(value);
+        onTitleChange?.(value);
+    };
 
     return (
         <div className={containerClassName}>
@@ -241,56 +448,62 @@ const AddEditNotes = ({
                 </div>
             )}
 
-            {isDocumentEditor && (
-                <div className='mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500'>
-                    <span className='inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white'>
-                        {modeMeta.label}
-                    </span>
-                    <span>{modeMeta.description}</span>
+            {!hideTitleField && (
+                <div className='flex flex-col gap-2 mb-4'>
+                    <label className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>TITLE</label>
+                    <input
+                        type='text'
+                        className={`outline-none transition-all pb-2 placeholder:text-slate-200 ${isDocumentEditor
+                            ? 'text-6xl font-bold text-slate-950 border-b border-slate-200 focus:border-slate-400 bg-transparent'
+                            : 'text-4xl font-semibold text-slate-950 border-b border-white hover:border-slate-100 focus:border-slate-200'
+                            }`}
+                        placeholder={noteMode === 'document' ? 'Untitled document' : 'Untitled note'}
+                        value={currentTitle}
+                        onChange={({ target }) => handleTitleInputChange(target.value)}
+                    />
                 </div>
             )}
 
-            <div className='flex flex-col gap-2 mb-4'>
-                <label className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>TITLE</label>
-                <input
-                    type='text'
-                    className={`outline-none transition-all pb-2 placeholder:text-slate-200 ${isDocumentEditor
-                        ? 'text-6xl font-bold text-slate-950 border-b border-slate-200 focus:border-slate-400 bg-transparent'
-                        : 'text-4xl font-semibold text-slate-950 border-b border-white hover:border-slate-100 focus:border-slate-200'
-                        }`}
-                    placeholder={noteMode === 'document' ? 'Untitled document' : 'Untitled note'}
-                    value={title}
-                    onChange={({ target }) => setTitle(target.value)}
-                />
-            </div>
-
             <div className='flex flex-col gap-2 mt-4'>
-                <label className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>CONTENT</label>
-                <div className={`document-host ${isDocumentEditor ? 'bg-transparent border-none rounded-none overflow-visible' : ''}`}>
-                    <Toolbar editor={editor} />
-                    <div className={`document-page ${isDocumentEditor ? 'min-h-[78vh] max-w-4xl shadow-none border border-slate-200 rounded-[28px] px-10 md:px-16 py-14 mt-6 bg-white' : ''}`}>
+                {!isDocumentEditor && (
+                    <label className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>CONTENT</label>
+                )}
+                <div className={`document-host ${isDocumentEditor ? 'document-shell' : ''}`}>
+                    <Toolbar
+                        editor={editor}
+                        variant={isDocumentEditor ? 'document' : 'quick'}
+                        onSave={handleSave}
+                        title={currentTitle}
+                        onStatusChange={setStatusMessage}
+                    />
+                    <div className={`document-page ${isDocumentEditor ? 'document-page--workspace is-full' : ''}`}>
                         <EditorContent editor={editor} className="tiptap-editor" />
                     </div>
                 </div>
+                {isDocumentEditor && statusMessage && (
+                    <p className='document-status-message'>{statusMessage}</p>
+                )}
             </div>
 
-            <div className={`mt-8 pt-4 ${isDocumentEditor ? 'border-t border-slate-100' : 'border-t border-slate-50'}`}>
-                <label className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>TAGS</label>
-                <TagInput tags={tags} setTags={setTags} />
-            </div>
+            {!isDocumentEditor && (
+                <div className='mt-8 pt-4 border-t border-slate-50'>
+                    <label className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>TAGS</label>
+                    <TagInput tags={tags} setTags={setTags} />
+                </div>
+            )}
 
             {error && <p className='text-red-500 text-xs pt-4'>{error}</p>}
 
-            <div className={`flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mt-6 ${isDocumentEditor ? 'pt-2' : ''}`}>
-                {editorVariant === 'document' ? (
-                    <p className='text-sm text-slate-500'>Long-form writing, richer structure, same notes system.</p>
-                ) : (
+            <div className={`flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mt-6 ${isDocumentEditor ? 'pt-0' : ''}`}>
+                {!isDocumentEditor ? (
                     <p className='text-sm text-slate-500'>Quick notes stay lightweight so you can capture ideas without friction.</p>
-                )}
+                ) : <span />}
 
-                <button className={`font-medium p-3 uppercase tracking-widest ${isDocumentEditor ? 'rounded-full bg-slate-900 text-white hover:bg-slate-800 px-6' : 'btn-primary'}`} onClick={handleSave}>
-                    {type === 'edit' ? 'Update Note' : noteMode === 'document' ? 'Create Document' : 'Add Note'}
-                </button>
+                {!isDocumentEditor && (
+                    <button className='btn-primary' onClick={handleSave}>
+                        {type === 'edit' ? 'Update Note' : noteMode === 'document' ? 'Create Document' : 'Add Note'}
+                    </button>
+                )}
             </div>
         </div>
     )

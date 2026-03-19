@@ -1,5 +1,10 @@
 import html2pdf from 'html2pdf.js';
 
+const getSafeFileName = (title = 'Untitled note') => {
+    const normalized = title.trim() || 'Untitled note';
+    return normalized.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+};
+
 /**
  * Exports a note to a PDF file.
  * @param {string} title - The title of the note.
@@ -32,7 +37,7 @@ export const exportNoteToPDF = (title, htmlContent) => {
     // PDF Configuration
     const opt = {
         margin: [10, 10, 10, 10],
-        filename: `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_note.pdf`,
+        filename: `${getSafeFileName(title)}_note.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -41,4 +46,88 @@ export const exportNoteToPDF = (title, htmlContent) => {
 
     // New Promise-based usage:
     html2pdf().set(opt).from(element).save();
+};
+
+export const downloadNoteAsHtml = (title, htmlContent) => {
+    const safeFileName = getSafeFileName(title);
+    const blob = new Blob([
+        `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${title || 'Untitled Note'}</title>
+</head>
+<body>
+  ${htmlContent}
+</body>
+</html>`,
+    ], { type: 'text/html;charset=utf-8' });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${safeFileName}.html`;
+    link.click();
+    URL.revokeObjectURL(url);
+};
+
+export const printNoteContent = (title, htmlContent) => {
+    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=800');
+
+    if (!printWindow) {
+        return false;
+    }
+
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>${title || 'Untitled Note'}</title>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                color: #0f172a;
+                margin: 40px;
+                line-height: 1.7;
+              }
+              h1, h2, h3 {
+                color: #0f172a;
+                page-break-after: avoid;
+              }
+              h1 {
+                border-bottom: 1px solid #e2e8f0;
+                padding-bottom: 12px;
+                margin-bottom: 24px;
+              }
+              blockquote {
+                border-left: 4px solid #cbd5e1;
+                margin: 16px 0;
+                padding-left: 16px;
+                color: #475569;
+              }
+              pre {
+                background: #0f172a;
+                color: #f8fafc;
+                padding: 16px;
+                border-radius: 8px;
+                overflow: auto;
+              }
+              code {
+                font-family: "Courier New", monospace;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>${title || 'Untitled Note'}</h1>
+            ${htmlContent}
+          </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    return true;
 };
